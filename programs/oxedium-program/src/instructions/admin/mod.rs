@@ -1,11 +1,11 @@
-pub use init_admin::*;
-pub use update_admin::*;
+pub use init_treasury::*;
+pub use update_treasury::*;
 pub use init_vault::*;
 pub use update_vault::*;
 pub use collect::*;
 
-pub mod init_admin;
-pub mod update_admin;
+pub mod init_treasury;
+pub mod update_treasury;
 pub mod init_vault;
 pub mod update_vault;
 pub mod collect;
