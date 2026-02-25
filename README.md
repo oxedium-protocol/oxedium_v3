@@ -1,6 +1,6 @@
 ![Solana](https://img.shields.io/badge/Blockchain-Solana-blue.svg)
 ![Anchor](https://img.shields.io/badge/Framework-Anchor-orange.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
+![License](https://img.shields.io/badge/License-SIOL-brightgreen?style=flat-square)
 ![GitHub stars](https://img.shields.io/github/stars/oxedium-protocol/oxedium?style=social)
 
 # Oxedium

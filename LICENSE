@@ -1,21 +1,495 @@
-MIT License
+================================================================================
+SHARIAH-INFORMED OPEN LICENSE (SIOL)
+Version 1.0
+================================================================================
 
-Copyright (c) 2025 Tyrbine
+Copyright (c) [Year] [Copyright Holder]
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+BISMILLAH AL-RAHMAN AL-RAHIM
+In the name of Allah, the Most Gracious, the Most Merciful.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+--------------------------------------------------------------------------------
+PREAMBLE
+--------------------------------------------------------------------------------
+
+This license governs the use, reproduction, modification, and distribution of
+the software and associated documentation files (the "Software") released under
+it. It is offered freely to humanity as a contribution to beneficial knowledge,
+in the tradition of Islamic civilization's long service to science, mathematics,
+engineering, and the common good.
+
+The authors of this Software are Muslims who believe that all human action
+carries moral weight before Allah, the Creator and Sustainer of all things. We
+further believe that providing a tool which is then used to cause harm to human
+beings is a matter we are accountable for, even if the harm is caused by another
+hand. The Prophet Muhammad, peace be upon him, said: "Whoever calls to guidance
+will have a reward equal to the rewards of those who follow him" (Sahih Muslim,
+2674). We extend the same principle in reverse: we do not wish to be callers,
+even indirect ones, to harm.
+
+This is not a license that attempts to codify the entirety of Islamic law
+(Shariah) — a task that would be impossible in a legal instrument of this kind,
+and that would require the ongoing interpretive work of qualified scholars across
+countless situations. Rather, this license identifies a specific and narrow set
+of use cases that are prohibited by near-universal consensus among scholars of
+the four Sunni legal schools (Hanafi, Maliki, Shafi'i, and Hanbali), as well as
+mainstream Shia jurisprudence, and which are also recognizable as serious ethical
+violations across many non-Islamic ethical traditions.
+
+We release this Software in a spirit of openness and benefit to all people. The
+restrictions below are not expressions of hostility toward any person or group.
+They are an expression of our accountability before Allah and our commitment to
+the principle found in the Quran, Surah Al-Ma'idah (5:2):
+
+    "And cooperate in righteousness and piety, but do not cooperate
+     in sin and aggression."
+
+We invite all users of this Software — Muslim and non-Muslim alike — to consider
+the ethical weight of what they build with the tools available to them.
+
+--------------------------------------------------------------------------------
+PART I: GRANT OF RIGHTS
+--------------------------------------------------------------------------------
+
+Subject to the terms and conditions of this License, including the Ethical Use
+Restrictions set forth in Part II, the copyright holder hereby grants to any
+person obtaining a copy of this Software a worldwide, royalty-free,
+non-exclusive, irrevocable license to:
+
+  1. Use the Software for any purpose not prohibited by Part II of this License;
+
+  2. Copy, reproduce, and distribute copies of the Software, in source or
+     compiled form, to any recipient;
+
+  3. Modify, adapt, translate, or create derivative works based upon the
+     Software;
+
+  4. Distribute modified versions and derivative works of the Software under
+     the terms of this License or a compatible license that imposes no fewer
+     restrictions than those in Part II;
+
+  5. Sublicense the rights granted herein, provided that any sublicense is
+     also subject to the Ethical Use Restrictions in Part II;
+
+  6. Use the Software for commercial purposes, provided that such commercial
+     use does not fall within the prohibited categories defined in Part II.
+
+The above rights may be exercised in all media, formats, and distribution
+channels, whether now known or hereafter devised.
+
+--------------------------------------------------------------------------------
+PART II: ETHICAL USE RESTRICTIONS
+--------------------------------------------------------------------------------
+
+The rights granted in Part I are conditioned upon the following restrictions.
+No person, organization, or legal entity may use, distribute, modify, or
+incorporate the Software, in whole or in part, in direct or substantial support
+of any of the following categories of activity. Each category is defined with
+specificity to avoid ambiguity.
+
+RESTRICTION 1 — USURY AND EXPLOITATIVE FINANCIAL SYSTEMS (RIBA)
+
+The Software may not be used in the development, operation, maintenance, or
+support of any financial system, platform, application, or service whose
+primary function is the charging or collection of interest (riba) on loans
+or credit extended to natural persons (individual human beings) who are in
+conditions of financial need or limited financial alternatives.
+
+    Clarifications:
+
+    (a) This restriction targets predatory lending products, payday loan
+        platforms, loan-shark operations, and high-interest consumer credit
+        systems whose structural design extracts wealth from vulnerable
+        individuals through the mechanism of compounding interest debt.
+
+    (b) This restriction does not prohibit all use of the Software by
+        financial institutions. The Software may be used in banking
+        infrastructure, payment processing, accounting systems, financial
+        data analysis, and other financial technology applications not
+        primarily characterized by the extraction of interest from
+        vulnerable natural persons.
+
+    (c) This restriction does not require the copyright holder to audit
+        every financial use of the Software. It establishes the ethical
+        boundary; the user bears the moral and legal responsibility for
+        compliance.
+
+    Islamic basis: The prohibition of riba is among the most emphatic in the
+    Quran. Allah says in Surah Al-Baqarah (2:275): "Allah has permitted trade
+    and forbidden riba." And in (2:279): "If you do not [desist], then be
+    informed of a war from Allah and His Messenger." The scholarly consensus
+    across all major schools is that riba is among the gravest of prohibitions.
+
+RESTRICTION 2 — PORNOGRAPHY AND SEXUALLY EXPLICIT CONTENT
+
+The Software may not be used in the development, operation, maintenance,
+hosting, distribution, or monetization of any platform, application, or
+service whose primary purpose is the production, storage, distribution, or
+sale of sexually explicit content, including but not limited to:
+
+    (a) Pornographic video, image, or audio content involving real human
+        beings;
+
+    (b) AI-generated or algorithmically produced sexually explicit content
+        depicting real or realistic human subjects;
+
+    (c) Platforms whose primary commercial model is subscription to or
+        sale of sexually explicit content.
+
+    Clarifications:
+
+    (a) This restriction does not prohibit use of the Software in general
+        content platforms, social media, or media hosting services that may
+        incidentally encounter or moderate such content, provided the
+        platform's primary purpose is not the production or distribution of
+        sexually explicit material.
+
+    (b) Medical, clinical, or educational software dealing with human anatomy
+        or sexual health in a non-exploitative, professionally appropriate
+        manner is not prohibited by this restriction.
+
+    Islamic basis: The preservation of chastity (hifz al-'ird) is one of the
+    five essential objectives of Islamic law (al-maqasid al-khamsah). The
+    Prophet, peace be upon him, said: "Every eye commits zina (unlawful sexual
+    act), and the zina of the eye is the lustful look" (Sahih Bukhari, 6243).
+    The facilitation of pornography is therefore a facilitation of widespread
+    moral corruption (fasad).
+
+RESTRICTION 3 — GAMBLING AND GAMES OF CHANCE
+
+The Software may not be used in the development, operation, or maintenance of
+any platform, application, or service whose primary function is gambling,
+wagering, or games of chance in which real monetary value or equivalent
+fungible assets are staked against an uncertain outcome, including but not
+limited to:
+
+    (a) Online casinos, sports betting platforms, and poker applications;
+
+    (b) Cryptocurrency gambling platforms;
+
+    (c) Loot box systems and in-application purchase mechanics whose primary
+        design is the randomized distribution of items of significant monetary
+        value, where the randomization mechanism constitutes the core commercial
+        model;
+
+    (d) Lottery and scratch-card applications.
+
+    Clarifications:
+
+    (a) Games of skill where monetary entry fees are incidental and the outcome
+        is determined primarily by player ability rather than chance are not
+        prohibited by this restriction.
+
+    (b) Statistical simulation, actuarial software, and probability modeling
+        tools used in research, insurance, or risk assessment are not prohibited
+        by this restriction.
+
+    Islamic basis: Allah says in Surah Al-Ma'idah (5:90): "O you who have
+    believed, indeed, intoxicants, gambling, [sacrificing on] stone altars [to
+    other than Allah], and divining arrows are but defilement from the work of
+    Satan, so avoid it that you may be successful." The prohibition of gambling
+    (maysir) is explicit and unambiguous in the Quran.
+
+RESTRICTION 4 — INTOXICANTS AND NARCOTICS
+
+The Software may not be used in the development, operation, or support of any
+platform, application, or service whose primary function is the production,
+sale, distribution, or promotion of:
+
+    (a) Alcoholic beverages;
+
+    (b) Controlled narcotics and illegal drugs intended for recreational use;
+
+    (c) Any substance whose primary purpose is the intoxication or
+        incapacitation of the human mind.
+
+    Clarifications:
+
+    (a) Pharmaceutical software, clinical trial management systems, harm
+        reduction platforms, addiction treatment services, and medical
+        research applications are not prohibited by this restriction, even
+        where such software handles data relating to controlled substances.
+
+    (b) Regulatory compliance software used by government agencies monitoring
+        controlled substances is not prohibited.
+
+    Islamic basis: The Prophet, peace be upon him, said: "Every intoxicant is
+    khamr, and every khamr is forbidden" (Sahih Muslim, 2003). The scholarly
+    consensus across all four Sunni schools holds that the facilitation of the
+    production and sale of intoxicants is itself impermissible.
+
+RESTRICTION 5 — SURVEILLANCE, PERSECUTION, AND OPPRESSION OF PERSONS
+
+The Software may not be used as a material component in any system whose
+primary purpose is the covert surveillance, tracking, identification, or
+targeting of individuals or populations for the purpose of persecution,
+discrimination, or denial of fundamental rights on the basis of religion,
+ethnicity, political belief, or protected characteristic, including but
+not limited to:
+
+    (a) Surveillance infrastructure used by authoritarian states to monitor
+        and suppress religious minorities, dissidents, or ethnic populations;
+
+    (b) Facial recognition or biometric systems deployed specifically for the
+        purpose of identifying and persecuting members of a religious or
+        ethnic group;
+
+    (c) Data collection and profiling systems designed to enable the
+        targeting of individuals for detention, interrogation, or punishment
+        based on religious observance or belief;
+
+    (d) Tools designed to enable stalking, harassment, or intimate partner
+        surveillance of private individuals without their knowledge or consent.
+
+    Clarifications:
+
+    (a) Legitimate law enforcement software operating under judicial oversight
+        and the rule of law is not prohibited by this restriction.
+
+    (b) Network security monitoring, threat detection, and cybersecurity
+        tools are not prohibited by this restriction.
+
+    (c) Parental control software with transparent and consensual application
+        is not prohibited by this restriction.
+
+    Islamic basis: Allah says in Surah Al-Hujurat (49:12): "O you who have
+    believed, avoid much [negative] assumption. Indeed, some assumption is sin.
+    And do not spy or backbite each other." The Prophet, peace be upon him,
+    said: "The Muslim is the brother of the Muslim. He does not oppress him, nor
+    does he abandon him" (Sahih Muslim, 2564). Participating in the apparatus
+    of oppression against any people is a violation of foundational Islamic
+    principles of justice.
+
+RESTRICTION 6 — WEAPONS OF MASS DESTRUCTION
+
+The Software may not be used in the development, design, guidance, deployment,
+or targeting systems of weapons whose design purpose is the indiscriminate mass
+killing of civilian populations, including but not limited to:
+
+    (a) Nuclear weapons delivery and targeting systems;
+
+    (b) Chemical weapons production, formulation, or deployment systems;
+
+    (c) Biological weapons development, enhancement, or weaponization systems;
+
+    (d) Radiological dispersal device design or deployment systems.
+
+    Clarifications:
+
+    (a) Defensive cybersecurity systems and purely defensive military
+        infrastructure not designed for mass civilian casualties are not
+        prohibited by this restriction.
+
+    (b) Academic research, simulation, and threat modeling conducted in
+        the context of arms control, disarmament, or public health is not
+        prohibited by this restriction.
+
+    Islamic basis: The Prophet, peace be upon him, commanded even in the
+    context of legitimate warfare: "Do not kill women, children, the elderly,
+    or monks in their monasteries" (reported by Abu Dawud, 2614). The
+    scholars of Islamic military ethics are unanimous that indiscriminate
+    killing of non-combatant civilians is haram without qualification. Weapons
+    designed for indiscriminate mass civilian killing are structurally
+    incompatible with Islamic rules of warfare.
+
+RESTRICTION 7 — SYSTEMATIC DECEPTION AND FRAUD
+
+The Software may not be used as a primary instrument of systematic deception
+designed to cause material harm to individuals, including but not limited to:
+
+    (a) Phishing systems, scam infrastructure, and social engineering
+        platforms designed to deceive individuals into surrendering
+        financial assets, personal credentials, or sensitive information;
+
+    (b) Disinformation platforms whose primary function is the automated
+        mass production and distribution of fabricated content designed to
+        deceive the public on matters of material consequence;
+
+    (c) Fraud systems targeting vulnerable populations, including the
+        elderly or those in financial distress, through deceptive
+        impersonation or false promises.
+
+    Clarifications:
+
+    (a) Creative fiction, satire, games, simulations, and entertainment
+        platforms are not prohibited by this restriction.
+
+    (b) Security research involving simulated phishing or social engineering
+        conducted with institutional oversight and informed consent is not
+        prohibited by this restriction.
+
+    Islamic basis: The Prophet, peace be upon him, said: "Whoever deceives
+    us is not of us" (Sahih Muslim, 101). He also said, peace be upon him:
+    "Truthfulness leads to righteousness and righteousness leads to Paradise"
+    (Sahih Bukhari, 6094). Systematic deception for material gain is
+    categorically condemned across all schools of Islamic law.
+
+--------------------------------------------------------------------------------
+PART III: CONDITIONS OF DISTRIBUTION
+--------------------------------------------------------------------------------
+
+Any person or entity that distributes the Software, whether in original or
+modified form, must:
+
+  1. Retain this license in full, including the Preamble, all Parts, and the
+     Islamic Ethics Statement in Part V, in any distributed copy;
+
+  2. Provide clear notice to recipients that the Software is distributed under
+     the Shariah-Informed Open License (SIOL) Version 1.0;
+
+  3. Not remove, obscure, or modify the Ethical Use Restrictions in Part II;
+
+  4. Not sublicense this Software under terms that grant rights broader than
+     those provided in this License, or that remove the Ethical Use
+     Restrictions;
+
+  5. Include the copyright notice "[Year] [Copyright Holder]" in any
+     distributed source or compiled form.
+
+Modified versions of the Software must be clearly identified as modifications
+of the original. The name of the original copyright holder may not be used to
+endorse or promote modified versions without prior written permission.
+
+--------------------------------------------------------------------------------
+PART IV: DISCLAIMER OF WARRANTIES AND LIMITATION OF LIABILITY
+--------------------------------------------------------------------------------
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+The copyright holder does not represent that compliance with the Ethical Use
+Restrictions in Part II can be monitored, verified, or enforced in every case.
+The responsibility for compliance rests with the user. Before Allah, each
+person bears the weight of their own choices.
+
+--------------------------------------------------------------------------------
+PART V: ISLAMIC ETHICS STATEMENT
+(Companion Document — Accessible Explanation of the Restrictions Above)
+--------------------------------------------------------------------------------
+
+This section is not a legal instrument. It is an explanation, written plainly,
+of why this license exists and what Islamic principles underlie its
+restrictions. It is addressed to every person who encounters this Software —
+Muslim and non-Muslim alike.
+
+WHY THIS LICENSE EXISTS
+
+We are Muslims. We believe that human beings are trustees (khulafa) on this
+earth, as Allah says in Surah Al-Baqarah (2:30), and that this trusteeship
+carries responsibility. Every act a person performs — including writing and
+distributing software — is an act that will be weighed. We did not want to
+release our work into the world with no consideration of how it might be used
+to harm the people Allah created.
+
+We are not under any illusion that a license can enforce morality. It cannot.
+People who intend to do harm will not be stopped by a text file. But we
+believe in the Islamic principle of bara'a, the disavowal of wrongdoing. By
+stating clearly what this Software must not be used for, we have discharged
+our duty to speak clearly. What a person does after hearing the truth is
+between them and Allah.
+
+THE FIVE OBJECTIVES OF ISLAMIC LAW (AL-MAQASID AL-KHAMSAH)
+
+Classical Islamic scholars identified five essential things that Islamic law
+exists to protect. These are:
+
+  1. The preservation of religion (hifz al-din)
+  2. The preservation of life (hifz al-nafs)
+  3. The preservation of intellect and reason (hifz al-'aql)
+  4. The preservation of lineage and family (hifz al-nasl)
+  5. The preservation of wealth and property (hifz al-mal)
+
+Every restriction in Part II of this license maps to one or more of these
+objectives. Riba destroys wealth and exploits the vulnerable. Pornography
+corrupts lineage and chastity. Gambling corrupts wealth and reason.
+Intoxicants destroy the intellect. Surveillance and oppression destroy life
+and religious freedom. Weapons of mass destruction destroy life entirely.
+Fraud destroys wealth and trust.
+
+We are not innovating new ethics. We are applying a 1,400-year-old ethical
+framework, refined by generations of scholars, to a new domain.
+
+ON THE PROHIBITIONS SPECIFICALLY
+
+Riba (Usury): Allah declared war, in the Quran itself, on those who persist
+in riba after being warned (Al-Baqarah 2:279). This is language used for
+almost nothing else in the Quran. The scholars are unanimous in its
+prohibition. We have narrowed our restriction to predatory lending targeting
+vulnerable individuals because we sought to be honest and specific rather
+than broad and unenforceable. We acknowledge that a fuller Islamic vision of
+finance would go further; this restriction represents the minimum that
+conscience demands.
+
+Pornography: The Prophet, peace be upon him, described the eye, the heart,
+and the hand as all capable of their own form of zina (Sahih Bukhari, 6243).
+A platform dedicated to the mass industrial production of sexually explicit
+content is, in our view, one of the most significant engines of moral
+corruption in contemporary society. We will not knowingly contribute to it.
+
+Gambling: The Quran explicitly names maysir (gambling) alongside intoxicants
+as "defilement from the work of Satan" (Al-Ma'idah 5:90). This is not an
+obscure ruling. It is among the clearest prohibitions in the primary sources.
+
+Intoxicants: The hadith is definitive: "Every intoxicant is khamr, and every
+khamr is forbidden" (Sahih Muslim, 2003). The category is broad and the
+ruling is absolute. We have been careful to exclude medical and harm-reduction
+software, because the preservation of life takes precedence over categorical
+application of this restriction.
+
+Surveillance and Oppression: The Quran commands justice ('adl) and forbids
+oppression (zulm) in terms that leave no room for qualification. Allah says:
+"And Allah does not like the oppressors" (Ali 'Imran 3:140). The Muslim
+communities most harmed by mass surveillance technology in the contemporary
+world are Muslim minorities under authoritarian regimes. We have a particular
+duty not to contribute to systems that hunt our brothers and sisters for the
+crime of practicing their faith.
+
+Weapons of Mass Destruction: Islamic rules of warfare (fiqh al-jihad) are
+explicit that non-combatants must not be targeted. The Prophet, peace be upon
+him, prohibited the killing of women, children, the elderly, and monks
+(Abu Dawud, 2614). A weapon designed to kill indiscriminately cannot be
+made compliant with these rules. There is no scholarly position in mainstream
+Islamic jurisprudence that permits the deliberate mass killing of civilian
+populations.
+
+Fraud and Deception: The Prophet, peace be upon him, walked away from a
+seller who had concealed defective goods and said: "Whoever deceives us is
+not of us" (Sahih Muslim, 101). Systematic, industrialized deception for
+material gain is simply incompatible with the Islamic character (akhlaq) that
+every Muslim is obligated to embody.
+
+AN INVITATION
+
+We do not release this Software with hostility toward anyone. We release it
+with the hope that it will be genuinely useful, that its restrictions will
+cause those who encounter them to reflect — even briefly — on what they are
+building and why, and that the explanation above might, for some reader,
+be an opening toward understanding the ethical coherence of Islamic values.
+
+The Prophet Muhammad, peace be upon him, said: "None of you truly believes
+until he loves for his brother what he loves for himself" (Sahih Bukhari,
+13). We want, for every human being, what we want for ourselves: a life of
+dignity, honesty, and safety from exploitation. This license is a small
+expression of that wish.
+
+    "Our Lord, accept this from us. Indeed, You are the Hearing, the Knowing."
+    — Surah Al-Baqarah (2:127)
+
+--------------------------------------------------------------------------------
+END OF SHARIAH-INFORMED OPEN LICENSE (SIOL) VERSION 1.0
+--------------------------------------------------------------------------------
+
+For questions, scholarly review submissions, or consultation regarding this
+license, contact: [Copyright Holder Contact Information]
+
+License version: SIOL-1.0
+Reference identifier for citation: SIOL-1.0
