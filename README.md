@@ -20,6 +20,18 @@ There are no token pairs, no bonding curves, and no impermanent loss — pricing
 
 ---
 
+## Protocol Lifecycle
+
+| Action | Participant | Tokens in | Tokens out | State changes |
+|--------|-------------|-----------|------------|---------------|
+| `staking` | LP | → vault ATA | — | `initial_balance ↑`, `current_balance ↑`, `staked_amount ↑` |
+| `swap` | Trader | → vault_in ATA | ← vault_out ATA | `current_balance_in ↑`, `current_balance_out ↓`, `cumulative_yield_per_lp ↑` |
+| `claim` | LP | — | ← vault ATA | `current_balance ↓`, `pending_claim = 0` |
+| `unstaking` | LP | — | ← vault ATA | `initial_balance ↓`, `current_balance ↓`, exit fee → `cumulative_yield_per_lp ↑` |
+| `collect` | Admin | — | ← vault ATA | `current_balance ↓`, `protocol_yield = 0` |
+
+---
+
 ## On-Chain Architecture
 
 ```
@@ -58,6 +70,7 @@ Each vault is fully self-contained: it holds its own token ATA and signs all out
 pub struct Vault {
     pub base_fee_bps: u64,             // floor fee for swaps out of this vault
     pub protocol_fee_bps: u64,         // portion of swap fee going to the protocol
+    pub max_exit_fee_bps: u64,         // maximum exit penalty for LP withdrawals
 
     pub token_mint: Pubkey,
     pub pyth_price_account: Pubkey,
@@ -91,11 +104,22 @@ pending_yield += (cumulative_yield_per_lp − last_checkpoint) × staked_amount 
 
 Withdraw tokens → **vault PDA signs** and sends tokens from its ATA back to the user → `staked_amount` decreases → both vault balances decrease by the full unstaked amount.
 
-**Dynamic exit fee:** if the vault's current liquidity falls below **50% of its initial balance**, a **2% fee** is deducted from the withdrawal. The retained amount stays in the vault's ATA and is credited to `protocol_yield`. This discourages exits that would destabilize the vault and protects remaining stakers.
+**Dynamic exit fee (quadratic curve):** a graduated fee kicks in as the vault's health deteriorates. Small drawdowns incur a tiny fee; deep drawdowns are penalised aggressively. The fee is distributed to **remaining LP stakers** via `cumulative_yield_per_lp` — not to the protocol — as compensation for the liquidity risk they absorb.
 
 ```
-if current_balance / initial_balance < 50%  →  exit_fee = 2% of withdrawal
+health        = current_balance / initial_balance   (0..100 %)
+deficit       = 100 − health
+curved        = deficit² / 100                      (quadratic 0..100)
+exit_fee_bps  = max_exit_fee_bps × curved / 100
 ```
+
+| Vault health | Exit fee (example: max = 5%) |
+|---|---|
+| 100 % | 0 bps (0.00 %) |
+| 80 % | 20 bps (0.20 %) |
+| 50 % | 125 bps (1.25 %) |
+| 20 % | 320 bps (3.20 %) |
+| 0 % | 500 bps (5.00 %) |
 
 ### Claiming yield
 
@@ -221,6 +245,7 @@ This prevents pathological combinations from producing a negative net output.
 |-----------|-----------|
 | LP fee (imbalance + oracle + liquidity impact) | Distributed to stakers of the **output vault** via `cumulative_yield_per_lp` |
 | Protocol fee | Held in `vault.protocol_yield`, withdrawn by admin via `collect` (vault PDA signs) |
+| Exit fee (on unstaking) | Distributed to **remaining LP stakers** of the same vault via `cumulative_yield_per_lp` |
 
 ---
 
@@ -253,8 +278,8 @@ This snapshot is taken on every `stake`, `unstake`, and `claim` call, so yield i
 |-------------|-------------|
 | `init_admin` | Initialize the Admin PDA (authorization account) |
 | `update_admin` | Transfer admin authority to a new pubkey |
-| `init_vault` | Create a new vault for a token mint |
-| `update_vault` | Update vault fee params and oracle staleness tolerance |
+| `init_vault` | Create a new vault (`base_fee`, `max_age_price`, `max_exit_fee_bps`) |
+| `update_vault` | Update `base_fee_bps`, `protocol_fee_bps`, `max_exit_fee_bps`, oracle config |
 | `collect` | Withdraw accumulated protocol yield from a vault (vault PDA signs) |
 
 ### Staker
@@ -262,7 +287,7 @@ This snapshot is taken on every `stake`, `unstake`, and `claim` call, so yield i
 | Instruction | Arguments | Description |
 |-------------|-----------|-------------|
 | `staking` | `amount: u64` | Deposit tokens into a vault, earn LP fees proportionally |
-| `unstaking` | `amount: u64` | Withdraw tokens (2% exit fee if vault health < 50%) |
+| `unstaking` | `amount: u64` | Withdraw tokens; quadratic exit fee distributed to remaining LP stakers |
 | `claim` | — | Collect all accumulated LP fee rewards |
 
 ### Trader
