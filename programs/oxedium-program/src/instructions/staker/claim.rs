@@ -51,6 +51,11 @@ pub fn claim(ctx: Context<ClaimInstructionAccounts>) -> Result<()> {
             signer_seeds),
         amount)?;
 
+    // Sync vault balance: tokens physically left the ATA
+    vault.current_balance = vault.current_balance
+        .checked_sub(amount)
+        .ok_or(OxediumError::OverflowInSub)?;
+
     // Update staker PDA state
     staker.last_cumulative_yield = cumulative_yield_per_lp;
     staker.pending_claim = 0;

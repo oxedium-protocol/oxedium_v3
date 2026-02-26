@@ -63,13 +63,15 @@ pub fn unstaking(ctx: Context<UnstakingInstructionAccounts>, amount: u64) -> Res
         .checked_sub(amount)
         .ok_or(OxediumError::OverflowInSub)?;
 
-    // Update vault liquidity (C-03: both balances decrease by full `amount`;
-    // the extra_fee stays in the vault and is credited to protocol_yield)
+    // Update vault liquidity:
+    //   initial_balance decreases by the full requested amount (LP share removed).
+    //   current_balance decreases only by unstake_amount — the exit fee physically
+    //   remains in the ATA and is tracked via protocol_yield until collected.
     vault.initial_balance = vault.initial_balance
         .checked_sub(amount)
         .ok_or(OxediumError::OverflowInSub)?;
     vault.current_balance = vault.current_balance
-        .checked_sub(amount)
+        .checked_sub(unstake_amount)
         .ok_or(OxediumError::OverflowInSub)?;
     let extra_fee = amount - unstake_amount;
     if extra_fee > 0 {
