@@ -1,10 +1,13 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token::AssociatedToken, token::{self, Mint, Token, TokenAccount, Transfer}};
-use crate::{components::{calculate_fee_amount, calculate_staker_yield}, events::UnstakingEvent, states::{Staker, Admin, Vault}, utils::*};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use crate::{components::{calculate_fee_amount, calculate_staker_yield}, events::UnstakingEvent, states::{Staker, Vault}, utils::*};
 
 #[inline(never)]
 pub fn unstaking(ctx: Context<UnstakingInstructionAccounts>, amount: u64) -> Result<()> {
     require!(amount > 0, OxediumError::ZeroAmount);
+
+    // Capture AccountInfo before taking mutable borrow of vault_pda (borrow checker)
+    let vault_pda_info = ctx.accounts.vault_pda.to_account_info();
 
     let vault: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda;
     let staker: &mut Account<'_, Staker> = &mut ctx.accounts.staker_pda;
@@ -33,14 +36,15 @@ pub fn unstaking(ctx: Context<UnstakingInstructionAccounts>, amount: u64) -> Res
         unstake_amount = calculate_fee_amount(unstake_amount, extra_fee_bps, 0)?.0;
     }
 
-    // Transfer unstake amount from treasury to staker
-    let seeds = &[OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes(), &[ctx.bumps.treasury_pda]];
+    // Transfer unstake amount from vault ATA to staker; vault_pda signs
+    let mint_key = ctx.accounts.token_mint.key();
+    let seeds = &[VAULT_SEED.as_bytes(), mint_key.as_ref(), &[ctx.bumps.vault_pda]];
     let signer_seeds = &[&seeds[..]];
 
     let cpi_accounts = Transfer {
-        from: ctx.accounts.treasury_ata.to_account_info(),
+        from: ctx.accounts.vault_ata.to_account_info(),
         to: ctx.accounts.signer_ata.to_account_info(),
-        authority: ctx.accounts.treasury_pda.to_account_info()
+        authority: vault_pda_info
     };
 
     token::transfer(
@@ -60,7 +64,7 @@ pub fn unstaking(ctx: Context<UnstakingInstructionAccounts>, amount: u64) -> Res
         .ok_or(OxediumError::OverflowInSub)?;
 
     // Update vault liquidity (C-03: both balances decrease by full `amount`;
-    // the extra_fee stays in the treasury and is credited to protocol_yield)
+    // the extra_fee stays in the vault and is credited to protocol_yield)
     vault.initial_balance = vault.initial_balance
         .checked_sub(amount)
         .ok_or(OxediumError::OverflowInSub)?;
@@ -95,7 +99,7 @@ pub struct UnstakingInstructionAccounts<'info> {
     #[account(mut, token::authority = signer, token::mint = token_mint)]
     pub signer_ata: Account<'info, TokenAccount>,
 
-    #[account(mut, seeds = [VAULT_SEED.as_bytes(), &token_mint.to_account_info().key.to_bytes()], bump)]
+    #[account(mut, seeds = [VAULT_SEED.as_bytes(), token_mint.key().as_ref()], bump)]
     pub vault_pda: Account<'info, Vault>,
 
     #[account(
@@ -107,13 +111,9 @@ pub struct UnstakingInstructionAccounts<'info> {
     )]
     pub staker_pda: Account<'info, Staker>,
 
-    #[account(mut, seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
-    pub treasury_pda: Account<'info, Admin>,
+    #[account(mut, token::authority = vault_pda, token::mint = token_mint)]
+    pub vault_ata: Account<'info, TokenAccount>,
 
-    #[account(mut, token::authority = treasury_pda, token::mint = token_mint)]
-    pub treasury_ata: Account<'info, TokenAccount>,
-
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }

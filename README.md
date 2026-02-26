@@ -24,15 +24,16 @@ There are no token pairs, no bonding curves, and no impermanent loss — pricing
 
 ```
                         ┌──────────────┐
-                        │  Admin PDA   │  (treasury, signs transfers)
-                        └──────┬───────┘
-                               │ holds funds in associated token accounts (ATAs)
-                 ┌─────────────┴──────────────┐
-                 ▼                            ▼
-          ┌─────────────┐             ┌─────────────┐
-          │  Vault PDA  │   ...more   │  Vault PDA  │   one per token mint
-          │   (SOL)     │             │   (USDC)    │
-          └─────────────┘             └─────────────┘
+                        │   Admin PDA  │  (authorization only — no funds)
+                        └──────────────┘
+
+          ┌─────────────────────────────────────────────┐
+          │  Vault PDA (SOL)       Vault PDA (USDC) ... │  one per token mint
+          │  ┌─────────────┐       ┌─────────────┐      │
+          │  │  vault_ata  │       │  vault_ata  │      │  each vault owns
+          │  │  (SOL ATA)  │       │ (USDC ATA)  │      │  its own tokens
+          │  └─────────────┘       └─────────────┘      │
+          └─────────────────────────────────────────────┘
                  │
         one per staker per vault
                  │
@@ -41,12 +42,14 @@ There are no token pairs, no bonding curves, and no impermanent loss — pricing
           └─────────────┘
 ```
 
+Each vault is fully self-contained: it holds its own token ATA and signs all outgoing transfers using its PDA seeds `["vault-seed", token_mint]`. The Admin PDA exists only for admin authorization checks — it holds no funds.
+
 ### Account types
 
 | Account | Seeds | Stores |
 |---------|-------|--------|
-| `Admin` | `["oxedium-seed", "admin-seed"]` | Admin pubkey (treasury signer) |
-| `Vault` | `["vault-seed", token_mint]` | Balances, fee params, cumulative yield, oracle config |
+| `Admin` | `["oxedium-seed", "admin-seed"]` | Admin pubkey (authorization only) |
+| `Vault` | `["vault-seed", token_mint]` | Balances, fee params, cumulative yield, oracle config, token ATA authority |
 | `Staker` | `["staker-seed", vault_pda, user]` | Staked amount, last yield checkpoint, claimable rewards |
 
 ### Vault state
@@ -76,7 +79,7 @@ pub struct Vault {
 
 ### Staking
 
-Deposit tokens → tokens go to the treasury ATA → `staker.staked_amount` increases → both `initial_balance` and `current_balance` increase by the deposited amount.
+Deposit tokens → tokens go to the **vault's own ATA** → `staker.staked_amount` increases → both `initial_balance` and `current_balance` increase by the deposited amount.
 
 Before updating the staked amount, any unrealized yield is snapshotted into `pending_claim` using the cumulative yield accumulator so nothing is lost:
 
@@ -86,9 +89,9 @@ pending_yield += (cumulative_yield_per_lp − last_checkpoint) × staked_amount 
 
 ### Unstaking
 
-Withdraw tokens → treasury sends tokens back → `staked_amount` decreases → both vault balances decrease by the full unstaked amount.
+Withdraw tokens → **vault PDA signs** and sends tokens from its ATA back to the user → `staked_amount` decreases → both vault balances decrease by the full unstaked amount.
 
-**Dynamic exit fee:** if the vault's current liquidity falls below **50% of its initial balance**, a **2% fee** is deducted from the withdrawal. The retained amount stays in the treasury and is credited to `protocol_yield`. This discourages exits that would destabilize the vault and protects remaining stakers.
+**Dynamic exit fee:** if the vault's current liquidity falls below **50% of its initial balance**, a **2% fee** is deducted from the withdrawal. The retained amount stays in the vault's ATA and is credited to `protocol_yield`. This discourages exits that would destabilize the vault and protects remaining stakers.
 
 ```
 if current_balance / initial_balance < 50%  →  exit_fee = 2% of withdrawal
@@ -96,7 +99,7 @@ if current_balance / initial_balance < 50%  →  exit_fee = 2% of withdrawal
 
 ### Claiming yield
 
-Stakers call `claim` to collect accumulated LP fees at any time. The payout is:
+Stakers call `claim` to collect accumulated LP fees at any time. The vault PDA signs the transfer from its ATA to the staker. The payout is:
 
 ```
 claimable = pending_claim + (cumulative_yield_per_lp − last_checkpoint) × staked_amount / SCALE
@@ -117,7 +120,7 @@ Swaps exchange token A for token B by depositing into vault A (input) and withdr
 3. **Compute swap math** — raw output from oracle prices, then apply composite fee.
 4. **Slippage guard** — `net_amount_out ≥ minimum_out` (user-supplied), otherwise revert.
 5. **Update vault state** — `vault_in.current_balance += amount_in`, `vault_out.current_balance -= net_amount_out`, LP fee accumulates into `cumulative_yield_per_lp`.
-6. **Transfer tokens** — user sends token A to treasury; treasury sends token B to user.
+6. **Transfer tokens** — user sends token A to `vault_in` ATA; `vault_pda_out` signs and sends token B from `vault_out` ATA to the user.
 
 ### Raw output calculation
 
@@ -217,7 +220,7 @@ This prevents pathological combinations from producing a negative net output.
 | Component | Recipient |
 |-----------|-----------|
 | LP fee (imbalance + oracle + liquidity impact) | Distributed to stakers of the **output vault** via `cumulative_yield_per_lp` |
-| Protocol fee | Held in `vault.protocol_yield`, claimable by admin |
+| Protocol fee | Held in `vault.protocol_yield`, withdrawn by admin via `collect` (vault PDA signs) |
 
 ---
 
@@ -248,11 +251,11 @@ This snapshot is taken on every `stake`, `unstake`, and `claim` call, so yield i
 
 | Instruction | Description |
 |-------------|-------------|
-| `init_treasury` | Initialize the protocol treasury (Admin PDA) |
-| `update_treasury` | Transfer admin authority to a new pubkey |
+| `init_admin` | Initialize the Admin PDA (authorization account) |
+| `update_admin` | Transfer admin authority to a new pubkey |
 | `init_vault` | Create a new vault for a token mint |
 | `update_vault` | Update vault fee params and oracle staleness tolerance |
-| `collect` | Withdraw accumulated protocol yield from a vault |
+| `collect` | Withdraw accumulated protocol yield from a vault (vault PDA signs) |
 
 ### Staker
 
@@ -273,14 +276,13 @@ This snapshot is taken on every `stake`, `unstake`, and `claim` call, so yield i
 ## Program ID
 
 ```
--
+Not yet deployed on the mainnet
 ```
 
 ---
 
 ## Links
 
-- [Whitepaper](https://4dac7oaqhkztsapbsfnjdxiau4yhvykfizpgwajvw2h7xr2bz3qq.arweave.net/4MAvuBA6szkB4ZFakd0ApzB64UVGXmsBNbaP-8dBzuE)
 - [X (Twitter)](https://x.com/0xedium)
 - [Community](https://t.me/oxedium_portal)
 - [App](https://oxedium.com)

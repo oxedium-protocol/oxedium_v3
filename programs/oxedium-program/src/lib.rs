@@ -19,12 +19,12 @@ declare_id!("oxe2YhrQZ8yjbaHfp6mQXfSJd124qK2sRpdH9ePZXh1");
 pub mod oxedium_program {
     use super::*;
 
-    pub fn init_treasury(ctx: Context<InitTreasuryInstructionAccounts>) -> Result<()> {
-        instructions::admin::init_treasury(ctx)
+    pub fn init_admin(ctx: Context<InitAdminInstructionAccounts>) -> Result<()> {
+        instructions::admin::init_admin(ctx)
     }
 
-    pub fn update_treasury(ctx: Context<UpdateTreasuryInstructionAccounts>) -> Result<()> {
-        instructions::admin::update_treasury(ctx)
+    pub fn update_admin(ctx: Context<UpdateAdminInstructionAccounts>) -> Result<()> {
+        instructions::admin::update_admin(ctx)
     }
 
     pub fn init_vault(ctx: Context<InitVaultInstructionAccounts>, base_fee: u64, max_age_price: u64) -> Result<()> {

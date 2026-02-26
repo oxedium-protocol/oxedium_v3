@@ -6,17 +6,22 @@ use crate::{components::check_admin, states::{Admin, Vault}, utils::{ADMIN_SEED,
 pub fn collect(ctx: Context<CollectInstructionAccounts>) -> Result<()> {
     check_admin(&ctx.accounts.admin_pda, &ctx.accounts.signer)?;
 
+    // Capture AccountInfo before taking mutable borrow of vault_pda (borrow checker)
+    let vault_pda_info = ctx.accounts.vault_pda.to_account_info();
+
     let vault: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda;
 
     let protocol_yield = vault.protocol_yield;
 
-    let seeds = &[OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes(), &[ctx.bumps.admin_pda]];
+    // vault_pda signs the transfer from its own ATA
+    let mint_key = ctx.accounts.token_mint.key();
+    let seeds = &[VAULT_SEED.as_bytes(), mint_key.as_ref(), &[ctx.bumps.vault_pda]];
     let signer_seeds = &[&seeds[..]];
 
     let cpi_accounts = Transfer {
-        from: ctx.accounts.admin_ata.to_account_info(),
+        from: ctx.accounts.vault_ata.to_account_info(),
         to: ctx.accounts.signer_ata.to_account_info(),
-        authority: ctx.accounts.admin_pda.to_account_info()
+        authority: vault_pda_info
     };
 
     token::transfer(
@@ -43,7 +48,6 @@ pub struct CollectInstructionAccounts<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    /// CHECK: no constraints, assumed valid
     pub token_mint: Account<'info, Mint>,
 
     #[account(mut, token::authority = signer, token::mint = token_mint)]
@@ -52,15 +56,12 @@ pub struct CollectInstructionAccounts<'info> {
     #[account(mut, seeds = [VAULT_SEED.as_bytes(), token_mint.key().as_ref()], bump)]
     pub vault_pda: Account<'info, Vault>,
 
-    #[account(mut, seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
+    /// Treasury PDA used only for admin authorization check
+    #[account(seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
     pub admin_pda: Account<'info, Admin>,
 
-    #[account(
-        mut,
-        associated_token::mint = token_mint,
-        associated_token::authority = admin_pda,
-    )]
-    pub admin_ata: Account<'info, TokenAccount>,
+    #[account(mut, token::authority = vault_pda, token::mint = token_mint)]
+    pub vault_ata: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,

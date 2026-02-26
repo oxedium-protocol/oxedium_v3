@@ -8,11 +8,11 @@ use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 use crate::{
     components::compute_swap_math,
     events::SwapEvent,
-    states::{Admin, Vault},
-    utils::{OxediumError, OXEDIUM_SEED, SCALE, ADMIN_SEED, VAULT_SEED},
+    states::Vault,
+    utils::{OxediumError, SCALE, VAULT_SEED},
 };
 
-/// Swap tokens from one vault to another, optionally in quote-only mode
+/// Swap tokens from one vault to another
 ///
 /// # Arguments
 /// * `ctx` - context containing all accounts
@@ -25,6 +25,9 @@ pub fn swap(
 ) -> Result<()> {
     require!(amount_in > 0, OxediumError::ZeroAmount);
     require!(minimum_out > 0, OxediumError::HighSlippage);
+
+    // Capture vault_pda_out AccountInfo before mutable borrow (borrow checker)
+    let vault_pda_out_info = ctx.accounts.vault_pda_out.to_account_info();
 
     let vault_in: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda_in;
     let vault_out: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda_out;
@@ -100,10 +103,10 @@ pub fn swap(
         .checked_add(result.protocol_fee_amount)
         .ok_or(OxediumError::OverflowInAdd)?;
 
-    // === 7. Transfer input tokens from user to treasury ===
+    // === 7. Transfer input tokens from user to vault_in ATA ===
     let cpi_accounts: token::Transfer<'_> = token::Transfer {
         from: ctx.accounts.signer_ata_in.to_account_info(),
-        to: ctx.accounts.treasury_ata_in.to_account_info(),
+        to: ctx.accounts.vault_ata_in.to_account_info(),
         authority: ctx.accounts.signer.to_account_info(),
     };
     token::transfer(
@@ -111,18 +114,19 @@ pub fn swap(
         amount_in,
     )?;
 
-    // === 8. Transfer output tokens from treasury to user ===
+    // === 8. Transfer output tokens from vault_out ATA to user; vault_pda_out signs ===
+    let mint_out_key = ctx.accounts.mint_out.key();
     let seeds: &[&[u8]; 3] = &[
-        OXEDIUM_SEED.as_bytes(),
-        ADMIN_SEED.as_bytes(),
-        &[ctx.bumps.treasury_pda],
+        VAULT_SEED.as_bytes(),
+        mint_out_key.as_ref(),
+        &[ctx.bumps.vault_pda_out],
     ];
     let signer_seeds: &[&[&[u8]]; 1] = &[&seeds[..]];
 
     let cpi_accounts_out: token::Transfer<'_> = token::Transfer {
-        from: ctx.accounts.treasury_ata_out.to_account_info(),
+        from: ctx.accounts.vault_ata_out.to_account_info(),
         to: ctx.accounts.signer_ata_out.to_account_info(),
-        authority: ctx.accounts.treasury_pda.to_account_info(),
+        authority: vault_pda_out_info,
     };
     token::transfer(
         CpiContext::new_with_signer(
@@ -179,14 +183,11 @@ pub struct SwapInstructionAccounts<'info> {
     #[account(mut, seeds = [VAULT_SEED.as_bytes(), mint_out.key().as_ref()], bump)]
     pub vault_pda_out: Account<'info, Vault>, // output vault
 
-    #[account(mut, seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
-    pub treasury_pda: Account<'info, Admin>, // treasury PDA
+    #[account(mut, token::authority = vault_pda_in, token::mint = mint_in)]
+    pub vault_ata_in: Account<'info, TokenAccount>, // input vault token account
 
-    #[account(mut, token::authority = treasury_pda, token::mint = mint_in)]
-    pub treasury_ata_in: Account<'info, TokenAccount>, // treasury input token account
-
-    #[account(mut, token::authority = treasury_pda, token::mint = mint_out)]
-    pub treasury_ata_out: Account<'info, TokenAccount>, // treasury output token account
+    #[account(mut, token::authority = vault_pda_out, token::mint = mint_out)]
+    pub vault_ata_out: Account<'info, TokenAccount>, // output vault token account
 
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,

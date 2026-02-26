@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token::{self, Mint, Token, TokenAccount}};
-use crate::{components::calculate_staker_yield, events::StakingEvent, states::{Staker, Admin, Vault}, utils::*};
+use crate::{components::calculate_staker_yield, events::StakingEvent, states::{Staker, Vault}, utils::*};
 
 /// Stake a given amount of vault tokens
 ///
@@ -24,10 +24,10 @@ pub fn staking(ctx: Context<StakingInstructionAccounts>, amount: u64) -> Result<
     // Get the last recorded cumulative yield for the staker
     let last_cumulative_yield: u128 = staker.last_cumulative_yield;
 
-    // Transfer the staked vault tokens from signer to treasury
+    // Transfer the staked vault tokens from signer to vault ATA
     let cpi_accounts = token::Transfer {
         from: ctx.accounts.signer_ata.to_account_info(),
-        to: ctx.accounts.treasury_ata.to_account_info(),
+        to: ctx.accounts.vault_ata.to_account_info(),
         authority: ctx.accounts.signer.to_account_info(),
     };
 
@@ -74,7 +74,7 @@ pub struct StakingInstructionAccounts<'info> {
     #[account(mut, token::authority = signer, token::mint = vault_mint)]
     pub signer_ata: Account<'info, TokenAccount>, // user token account for vault token
 
-    #[account(mut, seeds = [VAULT_SEED.as_bytes(), &vault_mint.to_account_info().key.to_bytes()], bump)]
+    #[account(mut, seeds = [VAULT_SEED.as_bytes(), vault_mint.key().as_ref()], bump)]
     pub vault_pda: Account<'info, Vault>, // vault PDA storing liquidity and yield info
 
     #[account(
@@ -86,16 +86,13 @@ pub struct StakingInstructionAccounts<'info> {
     )]
     pub staker_pda: Account<'info, Staker>, // staker PDA storing pending rewards and last yield
 
-    #[account(mut, seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
-    pub treasury_pda: Account<'info, Admin>, // treasury PDA
-
     #[account(
         init_if_needed,
         payer = signer,
         associated_token::mint = vault_mint,
-        associated_token::authority = treasury_pda,
+        associated_token::authority = vault_pda,
     )]
-    pub treasury_ata: Account<'info, TokenAccount>, // treasury token account holding staked vault tokens
+    pub vault_ata: Account<'info, TokenAccount>, // vault token account holding staked tokens
 
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,

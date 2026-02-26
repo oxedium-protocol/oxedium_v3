@@ -2,7 +2,7 @@ use crate::{states::Admin, utils::{ADMIN_SEED, OXEDIUM_SEED, OxediumError}};
 use anchor_lang::prelude::*;
 use std::str::FromStr;
 
-pub fn init_treasury(ctx: Context<InitTreasuryInstructionAccounts>) -> Result<()> {
+pub fn init_admin(ctx: Context<InitAdminInstructionAccounts>) -> Result<()> {
     let admin_key = Pubkey::from_str("3gXnk9LTHHtFzKK5pkKzp58okeo9V72MjGSyzFUCvKk2")
         .map_err(|_| OxediumError::InvalidAdmin)?; // ensure the key is valid
 
@@ -10,15 +10,17 @@ pub fn init_treasury(ctx: Context<InitTreasuryInstructionAccounts>) -> Result<()
         return Err(OxediumError::InvalidAdmin.into());
     }
 
-    let treasury: &mut Account<'_, Admin> = &mut ctx.accounts.treasury_pda;
+    let admin: &mut Account<'_, Admin> = &mut ctx.accounts.admin_pda;
 
-    treasury.pubkey = ctx.accounts.signer.key();
+    admin.pubkey = ctx.accounts.signer.key();
+
+    msg!("InitAdmin {{new_admin: {}}}", admin.pubkey.key());
 
     Ok(())
 }
 
 #[derive(Accounts)]
-pub struct InitTreasuryInstructionAccounts<'info> {
+pub struct InitAdminInstructionAccounts<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
@@ -29,7 +31,7 @@ pub struct InitTreasuryInstructionAccounts<'info> {
         bump,
         space = 8 + 32,
     )]
-    pub treasury_pda: Account<'info, Admin>,
+    pub admin_pda: Account<'info, Admin>,
 
     pub system_program: Program<'info, System>,
 }

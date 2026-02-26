@@ -1,13 +1,16 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-use crate::{components::calculate_staker_yield, events::ClaimEvent, states::{Staker, Admin, Vault}, utils::{OXEDIUM_SEED, STAKER_SEED, ADMIN_SEED, VAULT_SEED, OxediumError}};
+use crate::{components::calculate_staker_yield, events::ClaimEvent, states::{Staker, Vault}, utils::{VAULT_SEED, STAKER_SEED, OxediumError}};
 
 /// Claim accumulated yield for a staker from a vault
 ///
 /// # Arguments
 /// * `ctx` - context containing all accounts required for claiming
 pub fn claim(ctx: Context<ClaimInstructionAccounts>) -> Result<()> {
+    // Capture AccountInfo before taking mutable borrow of vault_pda (borrow checker)
+    let vault_pda_info = ctx.accounts.vault_pda.to_account_info();
+
     let vault: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda;
     let staker: &mut Account<'_, Staker> = &mut ctx.accounts.staker_pda;
 
@@ -28,18 +31,19 @@ pub fn claim(ctx: Context<ClaimInstructionAccounts>) -> Result<()> {
 
     require!(amount > 0, OxediumError::ZeroAmount);
 
-    // PDA seeds for signing transfer from treasury
-    let seeds = &[OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes(), &[ctx.bumps.treasury_pda]];
+    // PDA seeds for vault to sign transfer
+    let mint_key = ctx.accounts.vault_mint.key();
+    let seeds = &[VAULT_SEED.as_bytes(), mint_key.as_ref(), &[ctx.bumps.vault_pda]];
     let signer_seeds = &[&seeds[..]];
 
-    // Define CPI transfer from treasury to staker
+    // Define CPI transfer from vault ATA to staker
     let cpi_accounts = Transfer {
-        from: ctx.accounts.treasury_ata.to_account_info(),
+        from: ctx.accounts.vault_ata.to_account_info(),
         to: ctx.accounts.signer_ata.to_account_info(),
-        authority: ctx.accounts.treasury_pda.to_account_info()
+        authority: vault_pda_info
     };
 
-    // Execute the transfer using PDA signer
+    // Execute the transfer using vault PDA as signer
     token::transfer(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
@@ -87,17 +91,9 @@ pub struct ClaimInstructionAccounts<'info> {
     #[account(mut, seeds = [VAULT_SEED.as_bytes(), vault_mint.key().as_ref()], bump)]
     pub vault_pda: Account<'info, Vault>,
 
-    /// Treasury PDA used to sign yield transfer
-    #[account(mut, seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
-    pub treasury_pda: Account<'info, Admin>,
-
-    /// Treasury token account holding protocol/staker funds
-    #[account(
-        mut,
-        associated_token::mint = vault_mint,
-        associated_token::authority = treasury_pda,
-    )]
-    pub treasury_ata: Account<'info, TokenAccount>,
+    /// Vault token account holding staker funds
+    #[account(mut, token::authority = vault_pda, token::mint = vault_mint)]
+    pub vault_ata: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,

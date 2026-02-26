@@ -2,7 +2,7 @@ use crate::{components::check_admin, states::Admin, utils::{ADMIN_SEED, OXEDIUM_
 use anchor_lang::prelude::*;
 
 #[inline(never)]
-pub fn update_treasury(ctx: Context<UpdateTreasuryInstructionAccounts>) -> Result<()> {
+pub fn update_admin(ctx: Context<UpdateAdminInstructionAccounts>) -> Result<()> {
     let admin: &mut Account<'_, Admin> = &mut ctx.accounts.admin_pda;
 
     check_admin(admin, &ctx.accounts.signer)?;
@@ -15,7 +15,7 @@ pub fn update_treasury(ctx: Context<UpdateTreasuryInstructionAccounts>) -> Resul
 }
 
 #[derive(Accounts)]
-pub struct UpdateTreasuryInstructionAccounts<'info> {
+pub struct UpdateAdminInstructionAccounts<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
