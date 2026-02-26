@@ -1,5 +1,6 @@
 .anchor
 .DS_Store
+.env
 target
 **/*.rs.bk
 test-ledger
