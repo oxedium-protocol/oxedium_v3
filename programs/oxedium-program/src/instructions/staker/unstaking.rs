@@ -17,23 +17,32 @@ pub fn unstaking(ctx: Context<UnstakingInstructionAccounts>, amount: u64) -> Res
     let cumulative_yield: u128 = vault.cumulative_yield_per_lp;
     let last_cumulative_yield: u128 = staker.last_cumulative_yield;
 
-    // --- Dynamic Fee Logic ---
+    // --- Dynamic Exit Fee (quadratic curve) ---
+    //
+    // health  = current_balance / initial_balance  (clamped 0..100)
+    // deficit = 100 - health                       (0 at full health, 100 at empty)
+    // curved  = deficit² / 100                    (quadratic: small drawdowns → tiny fee,
+    //                                               large drawdowns → aggressive fee)
+    // exit_fee_bps = max_exit_fee_bps × curved / 100
+    //
+    // Examples with max_exit_fee_bps = 500 (5% max):
+    //   health 100% →   0 bps (0.00%)
+    //   health  80% →  20 bps (0.20%)
+    //   health  50% → 125 bps (1.25%)
+    //   health  20% → 320 bps (3.20%)
+    //   health   0% → 500 bps (5.00%)
     let mut unstake_amount = amount;
-    // Guard against division by zero when vault is empty (C-01)
-    let liquidity_ratio = if vault.initial_balance == 0 {
+    let health = if vault.initial_balance == 0 {
         100u128
     } else {
         (vault.current_balance as u128 * 100) / vault.initial_balance as u128
     };
-    let mut extra_fee_bps: u64 = 0;
+    let deficit = 100u128.saturating_sub(health);
+    let curved  = deficit * deficit / 100;
+    let exit_fee_bps = (vault.max_exit_fee_bps as u128 * curved / 100) as u64;
 
-    // Apply extra fee if current liquidity < 50%
-    if liquidity_ratio < 50 {
-        extra_fee_bps = 200; // 2% extra fee if liquidity too low
-    }
-
-    if extra_fee_bps > 0 {
-        unstake_amount = calculate_fee_amount(unstake_amount, extra_fee_bps, 0)?.0;
+    if exit_fee_bps > 0 {
+        unstake_amount = calculate_fee_amount(unstake_amount, exit_fee_bps, 0)?.0;
     }
 
     // Transfer unstake amount from vault ATA to staker; vault_pda signs
@@ -66,17 +75,21 @@ pub fn unstaking(ctx: Context<UnstakingInstructionAccounts>, amount: u64) -> Res
     // Update vault liquidity:
     //   initial_balance decreases by the full requested amount (LP share removed).
     //   current_balance decreases only by unstake_amount — the exit fee physically
-    //   remains in the ATA and is tracked via protocol_yield until collected.
+    //   remains in the ATA and is distributed to the remaining LP stakers.
     vault.initial_balance = vault.initial_balance
         .checked_sub(amount)
         .ok_or(OxediumError::OverflowInSub)?;
     vault.current_balance = vault.current_balance
         .checked_sub(unstake_amount)
         .ok_or(OxediumError::OverflowInSub)?;
-    let extra_fee = amount - unstake_amount;
-    if extra_fee > 0 {
-        vault.protocol_yield = vault.protocol_yield
-            .checked_add(extra_fee)
+
+    // Distribute exit fee to remaining LP stakers.
+    // initial_balance is already decremented, so the exiting staker is excluded.
+    // If no LPs remain, the fee is implicitly absorbed into the vault ATA (edge case).
+    let exit_fee = amount - unstake_amount;
+    if exit_fee > 0 && vault.initial_balance > 0 {
+        vault.cumulative_yield_per_lp = vault.cumulative_yield_per_lp
+            .checked_add((exit_fee as u128 * SCALE) / vault.initial_balance as u128)
             .ok_or(OxediumError::OverflowInAdd)?;
     }
 
@@ -84,7 +97,7 @@ pub fn unstaking(ctx: Context<UnstakingInstructionAccounts>, amount: u64) -> Res
         user: ctx.accounts.signer.key(),
         mint: vault.token_mint.key(),
         amount: unstake_amount,
-        extra_fee_bps: extra_fee_bps
+        extra_fee_bps: exit_fee_bps
     });
 
     Ok(())

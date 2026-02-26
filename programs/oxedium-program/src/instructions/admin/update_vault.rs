@@ -8,23 +8,27 @@ pub fn update_vault(
     base_fee_bps: u64,
     protocol_fee_bps: u64,
     max_age_price: u64,
+    max_exit_fee_bps: u64,
 ) -> Result<()> {
     let vault: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda;
 
     check_admin(&ctx.accounts.treasury_pda, &ctx.accounts.signer)?;
 
-    require!(base_fee_bps <= 1_000, OxediumError::FeeExceeds);     // max 10%
-    require!(protocol_fee_bps <= 500, OxediumError::FeeExceeds);   // max 5%
+    require!(base_fee_bps <= 1_000, OxediumError::FeeExceeds);        // max 10%
+    require!(protocol_fee_bps <= 500, OxediumError::FeeExceeds);      // max 5%
+    require!(max_exit_fee_bps <= 1_000, OxediumError::FeeExceeds);    // max 10%
     require!(max_age_price > 0, OxediumError::InvalidDeviation);
 
     vault.base_fee_bps = base_fee_bps;
     vault.protocol_fee_bps = protocol_fee_bps;
+    vault.max_exit_fee_bps = max_exit_fee_bps;
     vault.pyth_price_account = ctx.accounts.pyth_price_account.key();
     vault.max_age_price = max_age_price;
 
-    msg!("UpdateVault {{mint: {}, base_fee: {}, max_age_price: {}}}", 
-        vault.token_mint.key(), 
+    msg!("UpdateVault {{mint: {}, base_fee: {}, max_exit_fee: {}, max_age_price: {}}}",
+        vault.token_mint.key(),
         vault.base_fee_bps,
+        vault.max_exit_fee_bps,
         vault.max_age_price
     );
 
