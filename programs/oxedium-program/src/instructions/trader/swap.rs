@@ -27,13 +27,11 @@ pub fn swap(
     require!(minimum_out > 0, OxediumError::HighSlippage);
     require!(ctx.accounts.mint_in.key() != ctx.accounts.mint_out.key(), OxediumError::SameMint);
 
-    // Capture vault_pda_out AccountInfo before mutable borrow (borrow checker)
     let vault_pda_out_info = ctx.accounts.vault_pda_out.to_account_info();
 
     let vault_in: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda_in;
     let vault_out: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda_out;
 
-    // === 2. Validate Pyth price accounts ===
     if ctx.accounts.pyth_price_account_in.key() != vault_in.pyth_price_account {
         return Err(OxediumError::InvalidPythAccount.into());
     }
@@ -41,18 +39,15 @@ pub fn swap(
         return Err(OxediumError::InvalidPythAccount.into());
     }
 
-    // === 3. Read prices from Pyth ===
     let oracle_in: Account<'_, PriceUpdateV2>  = ctx.accounts.pyth_price_account_in.clone();
     let oracle_out: Account<'_, PriceUpdateV2>  = ctx.accounts.pyth_price_account_out.clone();
 
-    // === 4. Check price feed freshness (H-03: reject future timestamps) ===
     let clock: Clock = Clock::get()?;
     let current_timestamp: i64 = clock.unix_timestamp;
 
     let publish_time_in = ctx.accounts.pyth_price_account_in.price_message.publish_time;
     let publish_time_out = ctx.accounts.pyth_price_account_out.price_message.publish_time;
 
-    // Reject oracle data with future timestamps
     if publish_time_in > current_timestamp || publish_time_out > current_timestamp {
         return Err(OxediumError::OracleDataTooOld.into());
     }
@@ -72,7 +67,6 @@ pub fn swap(
         return Err(OxediumError::OracleDataTooOld.into());
     }
 
-    // === 5. Compute swap math ===
     let result = compute_swap_math(
         amount_in,
         oracle_in.price_message,
@@ -87,14 +81,12 @@ pub fn swap(
         return Err(OxediumError::HighSlippage.into());
     }
 
-    // === 6. Update vaults and yields (C-06: checked arithmetic) ===
     vault_in.current_balance = vault_in.current_balance
         .checked_add(amount_in)
         .ok_or(OxediumError::OverflowInAdd)?;
     vault_out.current_balance = vault_out.current_balance
         .checked_sub(result.net_amount_out)
         .ok_or(OxediumError::OverflowInSub)?;
-    // Distribute LP fee: to stakers if any, otherwise redirect to protocol yield
     if vault_out.initial_balance > 0 {
         vault_out.cumulative_yield_per_lp = vault_out.cumulative_yield_per_lp
             .checked_add((result.lp_fee_amount as u128 * SCALE) / vault_out.initial_balance as u128)
@@ -103,14 +95,12 @@ pub fn swap(
             .checked_add(result.protocol_fee_amount)
             .ok_or(OxediumError::OverflowInAdd)?;
     } else {
-        // No stakers: LP fee has no recipients — redirect to protocol yield to prevent value loss
         vault_out.protocol_yield = vault_out.protocol_yield
             .checked_add(result.lp_fee_amount)
             .and_then(|v| v.checked_add(result.protocol_fee_amount))
             .ok_or(OxediumError::OverflowInAdd)?;
     }
 
-    // === 7. Transfer input tokens from user to vault_in ATA ===
     let cpi_accounts: token::Transfer<'_> = token::Transfer {
         from: ctx.accounts.signer_ata_in.to_account_info(),
         to: ctx.accounts.vault_ata_in.to_account_info(),
@@ -121,7 +111,6 @@ pub fn swap(
         amount_in,
     )?;
 
-    // === 8. Transfer output tokens from vault_out ATA to user; vault_pda_out signs ===
     let mint_out_key = ctx.accounts.mint_out.key();
     let seeds: &[&[u8]; 3] = &[
         VAULT_SEED.as_bytes(),
@@ -144,7 +133,6 @@ pub fn swap(
         result.net_amount_out,
     )?;
 
-    // === 9. Emit swap event for off-chain indexing ===
     emit!(SwapEvent {
         user: ctx.accounts.signer.key(),
         fee_bps: result.swap_fee_bps,
@@ -165,16 +153,16 @@ pub fn swap(
 #[derive(Accounts)]
 pub struct SwapInstructionAccounts<'info> {
     #[account(mut)]
-    pub signer: Signer<'info>, // user performing the swap
+    pub signer: Signer<'info>,
 
-    pub mint_in: Account<'info, Mint>,  // input token mint
-    pub mint_out: Account<'info, Mint>, // output token mint
+    pub mint_in: Account<'info, Mint>,
+    pub mint_out: Account<'info, Mint>,
 
-    pub pyth_price_account_in: Account<'info, PriceUpdateV2>, // Pyth price feed for input token
-    pub pyth_price_account_out: Account<'info, PriceUpdateV2>, // Pyth price feed for output token
+    pub pyth_price_account_in: Account<'info, PriceUpdateV2>,
+    pub pyth_price_account_out: Account<'info, PriceUpdateV2>,
 
     #[account(mut, token::authority = signer, token::mint = mint_in)]
-    pub signer_ata_in: Account<'info, TokenAccount>, // user's input token account
+    pub signer_ata_in: Account<'info, TokenAccount>,
 
     #[account(
         init_if_needed,
@@ -182,19 +170,19 @@ pub struct SwapInstructionAccounts<'info> {
         associated_token::mint = mint_out,
         associated_token::authority = signer,
     )]
-    pub signer_ata_out: Account<'info, TokenAccount>, // user's output token account
+    pub signer_ata_out: Account<'info, TokenAccount>,
 
     #[account(mut, seeds = [VAULT_SEED.as_bytes(), mint_in.key().as_ref()], bump)]
-    pub vault_pda_in: Account<'info, Vault>, // input vault
+    pub vault_pda_in: Account<'info, Vault>,
 
     #[account(mut, seeds = [VAULT_SEED.as_bytes(), mint_out.key().as_ref()], bump)]
-    pub vault_pda_out: Account<'info, Vault>, // output vault
+    pub vault_pda_out: Account<'info, Vault>,
 
     #[account(mut, token::authority = vault_pda_in, token::mint = mint_in)]
-    pub vault_ata_in: Account<'info, TokenAccount>, // input vault token account
+    pub vault_ata_in: Account<'info, TokenAccount>,
 
     #[account(mut, token::authority = vault_pda_out, token::mint = mint_out)]
-    pub vault_ata_out: Account<'info, TokenAccount>, // output vault token account
+    pub vault_ata_out: Account<'info, TokenAccount>,
 
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,

@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 pub fn init_admin(ctx: Context<InitAdminInstructionAccounts>) -> Result<()> {
     let admin_key = Pubkey::from_str("3gXnk9LTHHtFzKK5pkKzp58okeo9V72MjGSyzFUCvKk2")
-        .map_err(|_| OxediumError::InvalidAdmin)?; // ensure the key is valid
+        .map_err(|_| OxediumError::InvalidAdmin)?;
 
     if ctx.accounts.signer.key() != admin_key {
         return Err(OxediumError::InvalidAdmin.into());

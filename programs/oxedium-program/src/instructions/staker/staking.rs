@@ -11,20 +11,15 @@ use crate::{components::calculate_staker_yield, events::StakingEvent, states::{S
 pub fn staking(ctx: Context<StakingInstructionAccounts>, amount: u64) -> Result<()> {
     require!(amount > 0, OxediumError::ZeroAmount);
 
-    // Capture vault PDA key before taking mutable borrow (borrow checker)
     let vault_pda_key = ctx.accounts.vault_pda.key();
 
     let vault: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda;
     let staker: &mut Account<'_, Staker> = &mut ctx.accounts.staker_pda;
 
-    // Get the cumulative yield per token from the vault
     let cumulative_yield: u128 = vault.cumulative_yield_per_lp;
-    // Get the staker's current staked amount
     let staker_balance: u64 = staker.staked_amount;
-    // Get the last recorded cumulative yield for the staker
     let last_cumulative_yield: u128 = staker.last_cumulative_yield;
 
-    // Transfer the staked vault tokens from signer to vault ATA
     let cpi_accounts = token::Transfer {
         from: ctx.accounts.signer_ata.to_account_info(),
         to: ctx.accounts.vault_ata.to_account_info(),
@@ -33,11 +28,9 @@ pub fn staking(ctx: Context<StakingInstructionAccounts>, amount: u64) -> Result<
 
     token::transfer(CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts), amount)?;
 
-    // Set staker PDA owner and vault PDA key
     staker.owner = ctx.accounts.signer.key();
     staker.vault = vault_pda_key;
 
-    // Calculate pending yield for staker and update
     staker.pending_claim = staker.pending_claim
         .checked_add(calculate_staker_yield(cumulative_yield, staker_balance, last_cumulative_yield))
         .ok_or(OxediumError::OverflowInAdd)?;
@@ -46,7 +39,6 @@ pub fn staking(ctx: Context<StakingInstructionAccounts>, amount: u64) -> Result<
         .checked_add(amount)
         .ok_or(OxediumError::OverflowInAdd)?;
 
-    // Update vault liquidity accounting
     vault.initial_balance = vault.initial_balance
         .checked_add(amount)
         .ok_or(OxediumError::OverflowInAdd)?;
@@ -67,15 +59,15 @@ pub fn staking(ctx: Context<StakingInstructionAccounts>, amount: u64) -> Result<
 #[derive(Accounts)]
 pub struct StakingInstructionAccounts<'info> {
     #[account(mut)]
-    pub signer: Signer<'info>, // the user staking tokens
+    pub signer: Signer<'info>,
 
-    pub vault_mint: Account<'info, Mint>, // vault token mint
+    pub vault_mint: Account<'info, Mint>,
 
     #[account(mut, token::authority = signer, token::mint = vault_mint)]
-    pub signer_ata: Account<'info, TokenAccount>, // user token account for vault token
+    pub signer_ata: Account<'info, TokenAccount>,
 
     #[account(mut, seeds = [VAULT_SEED.as_bytes(), vault_mint.key().as_ref()], bump)]
-    pub vault_pda: Account<'info, Vault>, // vault PDA storing liquidity and yield info
+    pub vault_pda: Account<'info, Vault>,
 
     #[account(
         init_if_needed,
@@ -84,7 +76,7 @@ pub struct StakingInstructionAccounts<'info> {
         bump,
         space = 8 + 32 + 32 + 8 + 16 + 8,
     )]
-    pub staker_pda: Account<'info, Staker>, // staker PDA storing pending rewards and last yield
+    pub staker_pda: Account<'info, Staker>,
 
     #[account(
         init_if_needed,
@@ -92,7 +84,7 @@ pub struct StakingInstructionAccounts<'info> {
         associated_token::mint = vault_mint,
         associated_token::authority = vault_pda,
     )]
-    pub vault_ata: Account<'info, TokenAccount>, // vault token account holding staked tokens
+    pub vault_ata: Account<'info, TokenAccount>,
 
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,

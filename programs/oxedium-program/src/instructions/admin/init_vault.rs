@@ -14,9 +14,9 @@ pub fn init_vault(
 
     check_admin(&ctx.accounts.treasury_pda, &ctx.accounts.signer)?;
 
-    require!(base_fee_bps <= 1_000, OxediumError::FeeExceeds);        // max 10%
-    require!(protocol_fee_bps <= 500, OxediumError::FeeExceeds);      // max 5%
-    require!(max_exit_fee_bps <= 1_000, OxediumError::FeeExceeds);    // max 10%
+    require!(base_fee_bps <= 1_000, OxediumError::FeeExceeds);
+    require!(protocol_fee_bps <= 500, OxediumError::FeeExceeds);
+    require!(max_exit_fee_bps <= 1_000, OxediumError::FeeExceeds);
     require!(max_age_price > 0, OxediumError::InvalidDeviation);
 
     vault.base_fee_bps = base_fee_bps;
@@ -38,7 +38,6 @@ pub struct InitVaultInstructionAccounts<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    /// CHECK: no constraints on this account (assumed valid)
     pub token_mint: Account<'info, Mint>,
 
     pub pyth_price_account: Account<'info, PriceUpdateV2>,

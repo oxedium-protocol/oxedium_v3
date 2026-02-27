@@ -6,14 +6,12 @@ use crate::{components::check_admin, states::{Admin, Vault}, utils::{ADMIN_SEED,
 pub fn collect(ctx: Context<CollectInstructionAccounts>) -> Result<()> {
     check_admin(&ctx.accounts.admin_pda, &ctx.accounts.signer)?;
 
-    // Capture AccountInfo before taking mutable borrow of vault_pda (borrow checker)
     let vault_pda_info = ctx.accounts.vault_pda.to_account_info();
 
     let vault: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda;
 
     let protocol_yield = vault.protocol_yield;
 
-    // vault_pda signs the transfer from its own ATA
     let mint_key = ctx.accounts.token_mint.key();
     let seeds = &[VAULT_SEED.as_bytes(), mint_key.as_ref(), &[ctx.bumps.vault_pda]];
     let signer_seeds = &[&seeds[..]];
@@ -56,7 +54,6 @@ pub struct CollectInstructionAccounts<'info> {
     #[account(mut, seeds = [VAULT_SEED.as_bytes(), token_mint.key().as_ref()], bump)]
     pub vault_pda: Account<'info, Vault>,
 
-    /// Treasury PDA used only for admin authorization check
     #[account(seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
     pub admin_pda: Account<'info, Admin>,
 
