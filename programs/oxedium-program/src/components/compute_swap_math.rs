@@ -1,7 +1,7 @@
 use pyth_solana_receiver_sdk::price_update::PriceFeedMessage;
 
 use crate::{
-    components::{calculate_fee_amount, conf_fee_bps, fees_setting, raw_amount_out},
+    components::{calculate_fee_amount, fees_setting, raw_amount_out},
     states::Vault,
     utils::OxediumError,
 };
@@ -28,10 +28,6 @@ pub fn compute_swap_math(
     let protocol_fee_bps = vault_out.protocol_fee_bps;
 
     let raw_out = raw_amount_out(amount_in, decimals_in, decimals_out, oracle_in, oracle_out)?;
-
-    // Extra fee proportional to oracle uncertainty — protects against latency arbitrage.
-    // conf/price ratio (in bps) for each oracle is summed and added on top of the swap fee.
-    let oracle_fee = conf_fee_bps(oracle_in.price, oracle_in.conf, oracle_out.price, oracle_out.conf);
 
     // Liquidity-impact fee: flat base fee up to 10% utilization,
     // then a quadratic curve that grows aggressively from 10% to 100%.
@@ -77,22 +73,19 @@ pub fn compute_swap_math(
         }
     };
 
-    // oracle_fee is independent of the liquidity curve
-    let adjusted_swap_fee_bps = liquidity_fee_bps.saturating_add(oracle_fee);
-
-    if adjusted_swap_fee_bps + protocol_fee_bps > 10_000 {
+    if liquidity_fee_bps + protocol_fee_bps > 10_000 {
         return Err(OxediumError::FeeExceeds.into());
     }
 
     let (after_fee, lp_fee, protocol_fee) =
-        calculate_fee_amount(raw_out, adjusted_swap_fee_bps, protocol_fee_bps)?;
+        calculate_fee_amount(raw_out, liquidity_fee_bps, protocol_fee_bps)?;
 
-    if vault_out.current_balance < after_fee {
+    if vault_out.current_balance < raw_out {
         return Err(OxediumError::InsufficientLiquidity.into());
     }
 
     Ok(SwapMathResult {
-        swap_fee_bps: adjusted_swap_fee_bps,
+        swap_fee_bps: liquidity_fee_bps,
         raw_amount_out: raw_out,
         net_amount_out: after_fee,
         lp_fee_amount: lp_fee,

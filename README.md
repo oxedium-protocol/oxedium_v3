@@ -148,20 +148,23 @@ Swaps exchange token A for token B by depositing into vault A (input) and withdr
 
 ### Raw output calculation
 
-Before fees, the output is computed purely from Pyth mid-prices:
+Output is computed from **conservative Pyth oracle bounds**, not mid-prices. Each oracle's confidence interval is applied in the direction that disfavours the trader:
 
 ```
-usd_value = amount_in × price_in  × 10^exponent_in
-raw_out   = usd_value / price_out / 10^exponent_out
+price_in_effective  = price_in  − conf_in   (valued lower  → fewer tokens out)
+price_out_effective = price_out + conf_out  (priced higher → fewer tokens out)
+
+usd_value = amount_in × price_in_effective  × 10^exponent_in
+raw_out   = usd_value / price_out_effective / 10^exponent_out
 ```
 
-Pyth exponents (typically negative, e.g. `-8`) are handled correctly for both signs to avoid precision loss.
+This creates a permanent **bid-ask spread** equal to the oracle confidence interval. A round-trip swap must overcome a spread of `2 × conf` per oracle leg, making oracle-latency arbitrage unprofitable without charging it as a claimable fee. Pyth exponents (typically negative, e.g. `-8`) are handled correctly for both signs to avoid precision loss.
 
 ---
 
 ## Fee Model
 
-Every swap incurs a **composite fee** applied to `raw_out`. Three independent components are summed. Each serves a distinct economic purpose.
+Every swap incurs a **composite fee** applied to `raw_out`. Two LP-facing components are summed and one flat protocol component is applied separately. Each serves a distinct economic purpose.
 
 ### 1. Imbalance fee
 
@@ -188,17 +191,7 @@ fee        = base_fee + (10_000 − base_fee) × curved / 10_000
 | 50% deficit | ~2 500 bps |
 | 100% drained | 10 000 bps (100%) |
 
-### 2. Oracle confidence fee
-
-Added on top of the imbalance fee. Makes latency arbitrage unprofitable when Pyth uncertainty is high:
-
-```
-oracle_fee = (conf_in / price_in + conf_out / price_out) × 10_000   [in bps, capped at 10_000]
-```
-
-The entire oracle_fee flows to LPs as direct compensation for oracle-latency risk. It is zero when both oracles report tight confidence intervals and grows during volatile market conditions.
-
-### 3. Liquidity impact fee
+### 2. Liquidity impact fee
 
 Protects the output vault from large single swaps depleting its reserves. Computed from the swap's utilization of the vault:
 
@@ -206,7 +199,7 @@ Protects the output vault from large single swaps depleting its reserves. Comput
 utilization_bps = raw_out × 10_000 / current_balance
 ```
 
-- Below **10% utilization** → no extra impact, fee = imbalance fee + oracle_fee.
+- Below **10% utilization** → no extra impact, fee = imbalance fee.
 - Above **10% utilization** → quadratic curve grows aggressively toward 100%:
 
 ```
@@ -227,23 +220,23 @@ Examples (base fee = 30 bps):
 
 If `current_balance = 0`, the fee jumps directly to 10 000 bps.
 
-### 4. Protocol fee
+### 3. Protocol fee
 
 A flat `protocol_fee_bps` (set per vault, independent of the above) is applied separately. Collected into `vault.protocol_yield` and withdrawn by the admin via `collect`.
 
 ### Safety check
 
 ```
-if (imbalance_fee + oracle_fee + liquidity_fee) + protocol_fee > 10_000 → FeeExceeds error
+if liquidity_fee + protocol_fee > 10_000 → FeeExceeds error
 ```
 
-This prevents pathological combinations from producing a negative net output.
+`liquidity_fee` is the larger of the imbalance fee and liquidity impact fee (they are composed, not summed). The check prevents pathological combinations from producing a negative net output.
 
 ### Fee distribution
 
 | Component | Recipient |
 |-----------|-----------|
-| LP fee (imbalance + oracle + liquidity impact) | Distributed to stakers of the **output vault** via `cumulative_yield_per_lp` |
+| LP fee (imbalance + liquidity impact) | Distributed to stakers of the **output vault** via `cumulative_yield_per_lp` |
 | Protocol fee | Held in `vault.protocol_yield`, withdrawn by admin via `collect` (vault PDA signs) |
 | Exit fee (on unstaking) | Distributed to **remaining LP stakers** of the same vault via `cumulative_yield_per_lp` |
 

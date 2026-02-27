@@ -1,6 +1,6 @@
 use crate::{components::check_admin, states::{Vault, Admin}, utils::*};
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token};
+use anchor_spl::token::Mint;
 use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 
 pub fn init_vault(
@@ -12,7 +12,7 @@ pub fn init_vault(
 ) -> Result<()> {
     let vault: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda;
 
-    check_admin(&ctx.accounts.treasury_pda, &ctx.accounts.signer)?;
+    check_admin(&ctx.accounts.admin_pda, &ctx.accounts.signer)?;
 
     require!(base_fee_bps <= 1_000, OxediumError::FeeExceeds);
     require!(protocol_fee_bps <= 500, OxediumError::FeeExceeds);
@@ -29,6 +29,14 @@ pub fn init_vault(
     vault.current_balance = 0;
     vault.cumulative_yield_per_lp = 0;
     vault.protocol_yield = 0;
+
+    msg!("InitVault {{mint: {}, base_fee: {}, protocol_fee: {}, max_exit_fee: {}, max_age_price: {}}}",
+        vault.token_mint.key(),
+        vault.base_fee_bps,
+        vault.protocol_fee_bps,
+        vault.max_exit_fee_bps,
+        vault.max_age_price
+    );
 
     Ok(())
 }
@@ -52,8 +60,7 @@ pub struct InitVaultInstructionAccounts<'info> {
     pub vault_pda: Account<'info, Vault>,
 
     #[account(mut, seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
-    pub treasury_pda: Account<'info, Admin>,
+    pub admin_pda: Account<'info, Admin>,
 
-    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }

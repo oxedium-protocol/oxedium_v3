@@ -119,39 +119,35 @@ fn imbalanced_vault_out_elevates_fee() {
 }
 
 #[test]
-fn oracle_confidence_adds_to_fee() {
-    // Use large conf values to generate a measurable oracle_fee
-    // price_in = 100_000, conf_in = 1_000 → fee_in = 1_000*10_000/100_000 = 100 bps
-    // price_out = 10_000,  conf_out = 100  → fee_out = 100*10_000/10_000  = 100 bps
-    // oracle_fee = 200 bps
+fn oracle_confidence_reduces_raw_out() {
+    // Conservative oracle bounds (price ± conf) reduce raw_out compared to spot pricing,
+    // while leaving swap_fee_bps unchanged — conf no longer adds to the fee rate.
     //
-    // Use exponent=0 for simplicity, same-value swap (price 100_000 in, 10_000 out)
-    // amount_in = 1 → raw_out = 1 * 10_000 / 100_000 * (adjustment) — just check fee structure.
+    // oracle: price=100_000_000 ($1, exp=-8), conf=10_000
+    //   effective price_in  = 100_000_000 - 10_000 = 99_990_000
+    //   effective price_out = 100_000_000 + 10_000 = 100_010_000
+    // amount_in=100 (6 dec) → raw_out = 100 * 99_990_000 / 100_010_000 = 99 (floor)
     //
-    // Easier: use exponent=-8, price_in=100_000_000 (=$1), price_out=100_000_000 (=$1)
-    //   same decimals (6→6), amount_in=100 → raw_out=100
-    //   conf_in = 10_000, conf_out = 10_000
-    //   fee_in  = 10_000 * 10_000 / 100_000_000 = 1 bps
-    //   fee_out = 1 bps → oracle_fee = 2 bps
-    // balanced vaults: swap_fee = 30, oracle_fee = 2 → adjusted = 32
-    // liquidity: utilization = 100 / 1_000_000 * 10_000 = 1 bps → ≤ 1_000 → fee = 32
-    let oracle_in = make_price_feed(100_000_000, 10_000, -8);
-    let oracle_out = make_price_feed(100_000_000, 10_000, -8);
-    let vault_in = make_vault(30, 0, 1_000_000, 1_000_000);
+    // With conf=0 (spot pricing): raw_out = 100 (identity swap, same price both sides)
+    let oracle_with_conf = make_price_feed(100_000_000, 10_000, -8);
+    let oracle_no_conf   = make_price_feed(100_000_000,       0, -8);
+    let vault_in  = make_vault(30, 0, 1_000_000, 1_000_000);
     let vault_out = make_vault(30, 10, 1_000_000, 1_000_000);
 
-    let result = compute_swap_math(
-        100,
-        oracle_in,
-        oracle_out,
-        6,
-        6,
-        &vault_in,
-        &vault_out,
-    )
-    .unwrap();
+    let with_conf = compute_swap_math(
+        100, oracle_with_conf.clone(), oracle_with_conf, 6, 6, &vault_in, &vault_out,
+    ).unwrap();
 
-    assert_eq!(result.swap_fee_bps, 32); // 30 (swap) + 2 (oracle)
+    let no_conf = compute_swap_math(
+        100, oracle_no_conf.clone(), oracle_no_conf, 6, 6, &vault_in, &vault_out,
+    ).unwrap();
+
+    // Fee rate is the same; conf only shrinks the raw amount, not the fee bps
+    assert_eq!(with_conf.swap_fee_bps, no_conf.swap_fee_bps);
+    // Conservative pricing gives fewer tokens out
+    assert!(with_conf.raw_amount_out < no_conf.raw_amount_out);
+    assert_eq!(no_conf.raw_amount_out, 100);
+    assert_eq!(with_conf.raw_amount_out, 99);
 }
 
 #[test]

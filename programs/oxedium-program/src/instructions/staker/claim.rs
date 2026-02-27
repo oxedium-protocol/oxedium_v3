@@ -25,7 +25,7 @@ pub fn claim(ctx: Context<ClaimInstructionAccounts>) -> Result<()> {
 
     require!(amount > 0, OxediumError::ZeroAmount);
 
-    let mint_key = ctx.accounts.vault_mint.key();
+    let mint_key = ctx.accounts.token_mint.key();
     let seeds = &[VAULT_SEED.as_bytes(), mint_key.as_ref(), &[ctx.bumps.vault_pda]];
     let signer_seeds = &[&seeds[..]];
 
@@ -64,9 +64,9 @@ pub struct ClaimInstructionAccounts<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    pub vault_mint: Account<'info, Mint>,
+    pub token_mint: Account<'info, Mint>,
 
-    #[account(mut, token::authority = signer, token::mint = vault_mint)]
+    #[account(mut, token::authority = signer, token::mint = token_mint)]
     pub signer_ata: Account<'info, TokenAccount>,
 
     #[account(
@@ -78,10 +78,10 @@ pub struct ClaimInstructionAccounts<'info> {
     )]
     pub staker_pda: Account<'info, Staker>,
 
-    #[account(mut, seeds = [VAULT_SEED.as_bytes(), vault_mint.key().as_ref()], bump)]
+    #[account(mut, seeds = [VAULT_SEED.as_bytes(), token_mint.key().as_ref()], bump)]
     pub vault_pda: Account<'info, Vault>,
 
-    #[account(mut, token::authority = vault_pda, token::mint = vault_mint)]
+    #[account(mut, token::authority = vault_pda, token::mint = token_mint)]
     pub vault_ata: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,

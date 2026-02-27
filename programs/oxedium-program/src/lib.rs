@@ -27,8 +27,8 @@ pub mod oxedium_program {
         instructions::admin::update_admin(ctx)
     }
 
-    pub fn init_vault(ctx: Context<InitVaultInstructionAccounts>, base_fee: u64, protocol_fee_bps: u64, max_age_price: u64, max_exit_fee_bps: u64) -> Result<()> {
-        instructions::admin::init_vault(ctx, base_fee, protocol_fee_bps, max_age_price, max_exit_fee_bps)
+    pub fn init_vault(ctx: Context<InitVaultInstructionAccounts>, base_fee_bps: u64, protocol_fee_bps: u64, max_age_price: u64, max_exit_fee_bps: u64) -> Result<()> {
+        instructions::admin::init_vault(ctx, base_fee_bps, protocol_fee_bps, max_age_price, max_exit_fee_bps)
     }
 
     pub fn update_vault(ctx: Context<UpdateVaultInstructionAccounts>, base_fee_bps: u64, protocol_fee_bps: u64, max_age_price: u64, max_exit_fee_bps: u64) -> Result<()> {

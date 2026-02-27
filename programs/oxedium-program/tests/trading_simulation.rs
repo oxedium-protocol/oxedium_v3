@@ -25,15 +25,15 @@ const SCALE: u128 = 1_000_000_000_000;
 
 // ─── Oracle constants ─────────────────────────────────────────────────────────
 
-// SOL: $180.00, Pyth exponent -8, confidence $0.10
+// SOL: $180.00, Pyth exponent -8
 const SOL_PRICE: i64 = 18_000_000_000;
-const SOL_CONF: u64 = 10_000_000;
+const SOL_CONF: u64 = 0;
 const SOL_EXP: i32 = -8;
 const SOL_DEC: u8 = 9;
 
-// USDC: $1.00, Pyth exponent -8, confidence $0.0001
+// USDC: $1.00, Pyth exponent -8
 const USDC_PRICE: i64 = 100_000_000;
-const USDC_CONF: u64 = 10_000;
+const USDC_CONF: u64 = 0;
 const USDC_EXP: i32 = -8;
 const USDC_DEC: u8 = 6;
 
@@ -240,32 +240,30 @@ fn simulate_sol_usdc_trading() {
     assert_eq!(raw, 180_000_000);
 
     // imbalance fee: both vaults balanced → 30 bps
-    // oracle confidence fee: SOL(10M/18B)*10000=5 bps + USDC(10K/100M)*10000=1 bps = 6 bps
     // utilization: 180_000_000 / 18_000_000_000 * 10000 = 100 bps < threshold → liquidity_fee = 30
-    // adjusted = liquidity(30) + oracle(6) = 36 bps
-    assert_eq!(fee_bps, 36);
+    assert_eq!(fee_bps, 30);
 
-    // lp_fee  = 180_000_000 × 36 / 10_000 = 648_000
+    // lp_fee  = 180_000_000 × 30 / 10_000 = 540_000
     // proto   = 180_000_000 × 5  / 10_000 = 90_000
-    // net_out = 180_000_000 − 648_000 − 90_000 = 179_262_000
-    assert_eq!(lp, 648_000);
+    // net_out = 180_000_000 − 540_000 − 90_000 = 179_370_000
+    assert_eq!(lp, 540_000);
     assert_eq!(proto, 90_000);
-    assert_eq!(net, 179_262_000);
+    assert_eq!(net, 179_370_000);
 
     // SOL vault receives 1 SOL
     assert_eq!(sol_vault.current_balance, 111_000_000_000);
 
     // USDC vault sends only the net amount; fees stay physically in vault
-    assert_eq!(usdc_vault.current_balance, 17_820_738_000);
+    assert_eq!(usdc_vault.current_balance, 17_820_630_000);
     assert_eq!(usdc_vault.protocol_yield, 90_000);
 
-    // Cumulative yield accumulator: 648_000 × SCALE / 18_000_000_000 = 36_000_000
-    assert_eq!(usdc_vault.cumulative_yield_per_lp, 36_000_000);
+    // Cumulative yield accumulator: 540_000 × SCALE / 18_000_000_000 = 30_000_000
+    assert_eq!(usdc_vault.cumulative_yield_per_lp, 30_000_000);
 
-    // Carol's claimable yield = 36_000 × 18_000_000_000 / SCALE = 648_000 (all lp fees)
+    // Carol's claimable yield = 30_000_000 × 18_000_000_000 / SCALE = 540_000 (all lp fees)
     let carol_yield_1 =
         calculate_staker_yield(usdc_vault.cumulative_yield_per_lp, carol.staked_amount, 0);
-    assert_eq!(carol_yield_1, 648_000);
+    assert_eq!(carol_yield_1, 540_000);
 
     // ── Phase 3: Swap 2 — 5 SOL → USDC (slight imbalance) ─────────────────
 
@@ -284,27 +282,26 @@ fn simulate_sol_usdc_trading() {
 
     // Imbalance check:
     //   delta_in  = (111B − 110B) × 10_000 / 110B = 90 bps
-    //   delta_out = (17_820_738_000 − 18B) × 10_000 / 18B ≈ −99 bps
+    //   delta_out = (17_820_630_000 − 18B) × 10_000 / 18B ≈ −99 bps
     //   delta_in(90) > delta_out(−99) → quadratic curve
     //   deviation = 99 bps → curved = 99² / 10_000 = 0 (integer)
     //   imbalance_fee = base_fee = 30 bps (too small to bend curve yet)
-    // utilization: 900_000_000 / 17_820_738_000 × 10_000 = 505 bps < threshold → 30 bps
-    // adjusted = 30 + 6 = 36 bps (same as balanced)
-    assert_eq!(fee_bps2, 36);
+    // utilization: 900_000_000 / 17_820_630_000 × 10_000 = 505 bps < threshold → 30 bps
+    assert_eq!(fee_bps2, 30);
 
-    // lp_fee  = 900_000_000 × 36 / 10_000 = 3_240_000
+    // lp_fee  = 900_000_000 × 30 / 10_000 = 2_700_000
     // proto   = 900_000_000 × 5  / 10_000 = 450_000
-    // net_out = 896_310_000
-    assert_eq!(lp2, 3_240_000);
+    // net_out = 896_850_000
+    assert_eq!(lp2, 2_700_000);
     assert_eq!(proto2, 450_000);
-    assert_eq!(net2, 896_310_000);
+    assert_eq!(net2, 896_850_000);
 
     assert_eq!(sol_vault.current_balance, 116_000_000_000);
-    assert_eq!(usdc_vault.current_balance, 16_924_428_000);
+    assert_eq!(usdc_vault.current_balance, 16_923_780_000);
     assert_eq!(usdc_vault.protocol_yield, 540_000);
 
-    // Cumulative: prev(36_000_000) + 3_240_000 × SCALE / 18B = 36_000_000 + 180_000_000 = 216_000_000
-    assert_eq!(usdc_vault.cumulative_yield_per_lp, 216_000_000);
+    // Cumulative: prev(30_000_000) + 2_700_000 × SCALE / 18B = 30_000_000 + 150_000_000 = 180_000_000
+    assert_eq!(usdc_vault.cumulative_yield_per_lp, 180_000_000);
 
     // ── Phase 4: Swap 3 — 10 SOL → USDC (growing imbalance, elevated fee) ──
 
@@ -323,29 +320,28 @@ fn simulate_sol_usdc_trading() {
 
     // Imbalance check:
     //   delta_in  = (116B − 110B) × 10_000 / 110B = 545 bps
-    //   delta_out = (16_924_428_000 − 18B) × 10_000 / 18B ≈ −597 bps
+    //   delta_out = (16_923_780_000 − 18B) × 10_000 / 18B ≈ −597 bps
     //   delta_in(545) > delta_out(−597) → curve
     //   deviation = 597 → curved = 597² / 10_000 = 35
     //   imbalance_fee = 30 + 9970 × 35 / 10_000 = 64 bps
-    // utilization: 1_800_000_000 / 16_924_428_000 × 10_000 = 1063 bps  (just above threshold)
+    // utilization: 1_800_000_000 / 16_923_780_000 × 10_000 = 1063 bps  (just above threshold)
     //   adj = (1063 − 1000) × 10_000 / 9_000 = 70
     //   curved = 70² / 10_000 = 0 → liquidity_fee = 64 bps (curve barely starts)
-    // adjusted = 64 + 6 = 70 bps
-    assert_eq!(fee_bps3, 70);
+    assert_eq!(fee_bps3, 64);
 
-    // lp_fee  = 1_800_000_000 × 70  / 10_000 = 12_600_000
+    // lp_fee  = 1_800_000_000 × 64  / 10_000 = 11_520_000
     // proto   = 1_800_000_000 × 5   / 10_000 =    900_000
-    // net_out = 1_786_500_000
-    assert_eq!(lp3, 12_600_000);
+    // net_out = 1_787_580_000
+    assert_eq!(lp3, 11_520_000);
     assert_eq!(proto3, 900_000);
-    assert_eq!(net3, 1_786_500_000);
+    assert_eq!(net3, 1_787_580_000);
 
     assert_eq!(sol_vault.current_balance, 126_000_000_000);
-    assert_eq!(usdc_vault.current_balance, 15_137_928_000);
+    assert_eq!(usdc_vault.current_balance, 15_136_200_000);
     assert_eq!(usdc_vault.protocol_yield, 1_440_000);
 
-    // Cumulative: 216_000_000 + 12_600_000 × SCALE / 18B = 216_000_000 + 700_000_000 = 916_000_000
-    assert_eq!(usdc_vault.cumulative_yield_per_lp, 916_000_000);
+    // Cumulative: 180_000_000 + 11_520_000 × SCALE / 18B = 180_000_000 + 640_000_000 = 820_000_000
+    assert_eq!(usdc_vault.cumulative_yield_per_lp, 820_000_000);
 
     // ── Phase 5: Swap 4 — 3 600 USDC → SOL (rebalancing, low fee) ──────────
 
@@ -363,7 +359,7 @@ fn simulate_sol_usdc_trading() {
     assert_eq!(raw4, 20_000_000_000);
 
     // Imbalance check — this swap rebalances:
-    //   delta_in  (USDC vault) = (15_137_928_000 − 18B) × 10_000 / 18B ≈ −1_590 bps  (deficit)
+    //   delta_in  (USDC vault) = (15_136_200_000 − 18B) × 10_000 / 18B ≈ −1_590 bps  (deficit)
     //   delta_out (SOL vault)  = (126B − 110B)           × 10_000 / 110B ≈ +1_454 bps (surplus)
     //   delta_in(−1_590) ≤ delta_out(+1_454) → rebalancing → imbalance_fee = base_fee = 30 bps ✓
     //
@@ -371,23 +367,21 @@ fn simulate_sol_usdc_trading() {
     //   adj    = (1_587 − 1_000) × 10_000 / 9_000 = 652
     //   curved = 652² / 10_000 = 42
     //   liquidity_fee = 30 + 9970 × 42 / 10_000 = 71 bps
-    // oracle conf: USDC(1) + SOL(5) = 6 bps
-    // adjusted = 71 + 6 = 77 bps
-    assert_eq!(fee_bps4, 77);
+    assert_eq!(fee_bps4, 71);
 
-    // lp_fee  = 20_000_000_000 × 77 / 10_000 = 154_000_000
+    // lp_fee  = 20_000_000_000 × 71 / 10_000 = 142_000_000
     // proto   = 20_000_000_000 × 5  / 10_000 =  10_000_000
-    // net_out = 19_836_000_000 ≈ 19.836 SOL
-    assert_eq!(lp4, 154_000_000);
+    // net_out = 19_848_000_000 ≈ 19.848 SOL
+    assert_eq!(lp4, 142_000_000);
     assert_eq!(proto4, 10_000_000);
-    assert_eq!(net4, 19_836_000_000);
+    assert_eq!(net4, 19_848_000_000);
 
-    assert_eq!(usdc_vault.current_balance, 18_737_928_000);
-    assert_eq!(sol_vault.current_balance, 106_164_000_000);
+    assert_eq!(usdc_vault.current_balance, 18_736_200_000);
+    assert_eq!(sol_vault.current_balance, 106_152_000_000);
     assert_eq!(sol_vault.protocol_yield, 10_000_000);
 
-    // SOL cumulative: 154_000_000 × SCALE / 110B = 1_400_000_000
-    assert_eq!(sol_vault.cumulative_yield_per_lp, 1_400_000_000);
+    // SOL cumulative: 142_000_000 × SCALE / 110B = 1_290_909_090 (floor)
+    assert_eq!(sol_vault.cumulative_yield_per_lp, 1_290_909_090);
 
     // Rebalancing restored USDC vault health (current > initial now)
     assert!(usdc_vault.current_balance > usdc_vault.initial_balance);
@@ -396,12 +390,12 @@ fn simulate_sol_usdc_trading() {
 
     let carol_payout = do_claim(&mut carol, &mut usdc_vault);
 
-    // Total LP fees in USDC vault across 3 swaps: 648_000 + 3_240_000 + 12_600_000 = 16_488_000
+    // Total LP fees in USDC vault across 3 swaps: 540_000 + 2_700_000 + 11_520_000 = 14_760_000
     // Carol holds 100 % of USDC vault → she gets everything
-    assert_eq!(carol_payout, 16_488_000);
+    assert_eq!(carol_payout, 14_760_000);
     assert_eq!(carol.pending_claim, 0);
-    assert_eq!(carol.last_cumulative_yield, 916_000_000);
-    assert_eq!(usdc_vault.current_balance, 18_737_928_000 - 16_488_000);
+    assert_eq!(carol.last_cumulative_yield, 820_000_000);
+    assert_eq!(usdc_vault.current_balance, 18_736_200_000 - 14_760_000);
 
     // ── Phase 7: Alice's and Bob's SOL yield proportions ────────────────────
 
@@ -411,8 +405,8 @@ fn simulate_sol_usdc_trading() {
         alice.staked_amount,
         alice.last_cumulative_yield,
     );
-    // 1_400_000_000 × 100_000_000_000 / SCALE = 140_000_000 lamports = 0.14 SOL
-    assert_eq!(alice_yield, 140_000_000);
+    // 1_290_909_090 × 100_000_000_000 / SCALE = 129_090_909 lamports
+    assert_eq!(alice_yield, 129_090_909);
 
     // Bob: 10 SOL / 110 SOL total
     let bob_yield = calculate_staker_yield(
@@ -420,11 +414,11 @@ fn simulate_sol_usdc_trading() {
         bob.staked_amount,
         bob.last_cumulative_yield,
     );
-    // 1_400_000_000 × 10_000_000_000 / SCALE = 14_000_000 lamports = 0.014 SOL
-    assert_eq!(bob_yield, 14_000_000);
+    // 1_290_909_090 × 10_000_000_000 / SCALE = 12_909_090 lamports (floor)
+    assert_eq!(bob_yield, 12_909_090);
 
-    // Alice + Bob == total lp_fee paid by the rebalancing swap
-    assert_eq!(alice_yield + bob_yield, lp4);
+    // Alice + Bob ≈ total lp_fee from the rebalancing swap (≤1 lamport rounding dust)
+    assert!(lp4 - alice_yield - bob_yield <= 1);
 
     // ── Phase 8: Alice unstakes 5 SOL (vault healthy, no exit fee) ──────────
 
@@ -437,12 +431,12 @@ fn simulate_sol_usdc_trading() {
     assert_eq!(alice_receives, 5_000_000_000);
     assert_eq!(alice.staked_amount, 95_000_000_000);
     assert_eq!(sol_vault.initial_balance, 105_000_000_000);
-    assert_eq!(sol_vault.current_balance, 101_164_000_000);
+    assert_eq!(sol_vault.current_balance, 101_152_000_000);
     assert_eq!(sol_vault.protocol_yield, 10_000_000); // unchanged
     assert_eq!(usdc_vault.current_balance, usdc_before_unstake); // USDC vault untouched
 
     // Pending yield was snapshotted before exit
-    assert_eq!(alice.pending_claim, 140_000_000); // captured at do_unstake checkpoint
+    assert_eq!(alice.pending_claim, 129_090_909); // captured at do_unstake checkpoint
 
     // ── Phase 9: Exit fee triggered (vault health < 50 %) ───────────────────
 

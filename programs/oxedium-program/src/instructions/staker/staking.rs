@@ -61,12 +61,12 @@ pub struct StakingInstructionAccounts<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    pub vault_mint: Account<'info, Mint>,
+    pub token_mint: Account<'info, Mint>,
 
-    #[account(mut, token::authority = signer, token::mint = vault_mint)]
+    #[account(mut, token::authority = signer, token::mint = token_mint)]
     pub signer_ata: Account<'info, TokenAccount>,
 
-    #[account(mut, seeds = [VAULT_SEED.as_bytes(), vault_mint.key().as_ref()], bump)]
+    #[account(mut, seeds = [VAULT_SEED.as_bytes(), token_mint.key().as_ref()], bump)]
     pub vault_pda: Account<'info, Vault>,
 
     #[account(
@@ -81,7 +81,7 @@ pub struct StakingInstructionAccounts<'info> {
     #[account(
         init_if_needed,
         payer = signer,
-        associated_token::mint = vault_mint,
+        associated_token::mint = token_mint,
         associated_token::authority = vault_pda,
     )]
     pub vault_ata: Account<'info, TokenAccount>,

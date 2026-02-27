@@ -25,9 +25,10 @@ pub fn update_vault(
     vault.pyth_price_account = ctx.accounts.pyth_price_account.key();
     vault.max_age_price = max_age_price;
 
-    msg!("UpdateVault {{mint: {}, base_fee: {}, max_exit_fee: {}, max_age_price: {}}}",
+    msg!("UpdateVault {{mint: {}, base_fee: {}, protocol_fee: {}, max_exit_fee: {}, max_age_price: {}}}",
         vault.token_mint.key(),
         vault.base_fee_bps,
+        vault.protocol_fee_bps,
         vault.max_exit_fee_bps,
         vault.max_age_price
     );

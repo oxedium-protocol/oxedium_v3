@@ -24,8 +24,7 @@ pub fn swap(
     minimum_out: u64,
 ) -> Result<()> {
     require!(amount_in > 0, OxediumError::ZeroAmount);
-    require!(minimum_out > 0, OxediumError::HighSlippage);
-    require!(ctx.accounts.mint_in.key() != ctx.accounts.mint_out.key(), OxediumError::SameMint);
+    require!(ctx.accounts.token_mint_in.key() != ctx.accounts.token_mint_out.key(), OxediumError::SameMint);
 
     let vault_pda_out_info = ctx.accounts.vault_pda_out.to_account_info();
 
@@ -71,8 +70,8 @@ pub fn swap(
         amount_in,
         oracle_in.price_message,
         oracle_out.price_message,
-        ctx.accounts.mint_in.decimals,
-        ctx.accounts.mint_out.decimals,
+        ctx.accounts.token_mint_in.decimals,
+        ctx.accounts.token_mint_out.decimals,
         vault_in,
         vault_out
     )?;
@@ -111,7 +110,7 @@ pub fn swap(
         amount_in,
     )?;
 
-    let mint_out_key = ctx.accounts.mint_out.key();
+    let mint_out_key = ctx.accounts.token_mint_out.key();
     let seeds: &[&[u8]; 3] = &[
         VAULT_SEED.as_bytes(),
         mint_out_key.as_ref(),
@@ -155,33 +154,33 @@ pub struct SwapInstructionAccounts<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    pub mint_in: Account<'info, Mint>,
-    pub mint_out: Account<'info, Mint>,
+    pub token_mint_in: Account<'info, Mint>,
+    pub token_mint_out: Account<'info, Mint>,
 
     pub pyth_price_account_in: Account<'info, PriceUpdateV2>,
     pub pyth_price_account_out: Account<'info, PriceUpdateV2>,
 
-    #[account(mut, token::authority = signer, token::mint = mint_in)]
+    #[account(mut, token::authority = signer, token::mint = token_mint_in)]
     pub signer_ata_in: Account<'info, TokenAccount>,
 
     #[account(
         init_if_needed,
         payer = signer,
-        associated_token::mint = mint_out,
+        associated_token::mint = token_mint_out,
         associated_token::authority = signer,
     )]
     pub signer_ata_out: Account<'info, TokenAccount>,
 
-    #[account(mut, seeds = [VAULT_SEED.as_bytes(), mint_in.key().as_ref()], bump)]
+    #[account(mut, seeds = [VAULT_SEED.as_bytes(), token_mint_in.key().as_ref()], bump)]
     pub vault_pda_in: Account<'info, Vault>,
 
-    #[account(mut, seeds = [VAULT_SEED.as_bytes(), mint_out.key().as_ref()], bump)]
+    #[account(mut, seeds = [VAULT_SEED.as_bytes(), token_mint_out.key().as_ref()], bump)]
     pub vault_pda_out: Account<'info, Vault>,
 
-    #[account(mut, token::authority = vault_pda_in, token::mint = mint_in)]
+    #[account(mut, token::authority = vault_pda_in, token::mint = token_mint_in)]
     pub vault_ata_in: Account<'info, TokenAccount>,
 
-    #[account(mut, token::authority = vault_pda_out, token::mint = mint_out)]
+    #[account(mut, token::authority = vault_pda_out, token::mint = token_mint_out)]
     pub vault_ata_out: Account<'info, TokenAccount>,
 
     pub associated_token_program: Program<'info, AssociatedToken>,
