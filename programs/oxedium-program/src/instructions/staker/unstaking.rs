@@ -121,8 +121,8 @@ pub struct UnstakingInstructionAccounts<'info> {
         mut,
         seeds = [STAKER_SEED.as_bytes(), vault_pda.key().as_ref(), signer.key().as_ref()],
         bump,
-        constraint = staker_pda.owner == signer.key() @ OxediumError::InvalidAdmin,
-        constraint = staker_pda.vault == vault_pda.key() @ OxediumError::InvalidAdmin,
+        constraint = staker_pda.owner == signer.key() @ OxediumError::InvalidStaker,
+        constraint = staker_pda.vault == vault_pda.key() @ OxediumError::InvalidVault,
     )]
     pub staker_pda: Account<'info, Staker>,
 

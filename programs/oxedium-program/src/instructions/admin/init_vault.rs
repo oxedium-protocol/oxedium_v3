@@ -5,16 +5,22 @@ use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 
 pub fn init_vault(
     ctx: Context<InitVaultInstructionAccounts>,
-    base_fee: u64,
+    base_fee_bps: u64,
+    protocol_fee_bps: u64,
     max_age_price: u64,
     max_exit_fee_bps: u64,
 ) -> Result<()> {
-    check_admin(&ctx.accounts.treasury_pda, &ctx.accounts.signer)?;
-
     let vault: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda;
 
-    vault.base_fee_bps = base_fee;
-    vault.protocol_fee_bps = 1;
+    check_admin(&ctx.accounts.treasury_pda, &ctx.accounts.signer)?;
+
+    require!(base_fee_bps <= 1_000, OxediumError::FeeExceeds);        // max 10%
+    require!(protocol_fee_bps <= 500, OxediumError::FeeExceeds);      // max 5%
+    require!(max_exit_fee_bps <= 1_000, OxediumError::FeeExceeds);    // max 10%
+    require!(max_age_price > 0, OxediumError::InvalidDeviation);
+
+    vault.base_fee_bps = base_fee_bps;
+    vault.protocol_fee_bps = protocol_fee_bps;
     vault.max_exit_fee_bps = max_exit_fee_bps;
     vault.token_mint = ctx.accounts.token_mint.key();
     vault.pyth_price_account = ctx.accounts.pyth_price_account.key();

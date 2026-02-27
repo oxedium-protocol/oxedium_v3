@@ -25,6 +25,7 @@ fn make_vault(
     Vault {
         base_fee_bps,
         protocol_fee_bps,
+        max_exit_fee_bps: 10_000,
         token_mint: Pubkey::default(),
         pyth_price_account: Pubkey::default(),
         max_age_price: 0,

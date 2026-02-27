@@ -14,7 +14,7 @@ pub fn raw_amount_out(
     // Oracle uncertainty is handled separately via conf_fee_bps in compute_swap_math,
     // which routes the fee explicitly to LPs. Using mid prices here avoids double-charging.
     if price_message_in.price <= 0 || price_message_out.price <= 0 {
-        return Err(OxediumError::OverflowInSub);
+        return Err(OxediumError::InvalidPrice);
     }
     let price_in  = price_message_in.price  as u128;
     let price_out = price_message_out.price as u128;

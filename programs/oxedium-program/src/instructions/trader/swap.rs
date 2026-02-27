@@ -25,6 +25,7 @@ pub fn swap(
 ) -> Result<()> {
     require!(amount_in > 0, OxediumError::ZeroAmount);
     require!(minimum_out > 0, OxediumError::HighSlippage);
+    require!(ctx.accounts.mint_in.key() != ctx.accounts.mint_out.key(), OxediumError::SameMint);
 
     // Capture vault_pda_out AccountInfo before mutable borrow (borrow checker)
     let vault_pda_out_info = ctx.accounts.vault_pda_out.to_account_info();
@@ -93,15 +94,21 @@ pub fn swap(
     vault_out.current_balance = vault_out.current_balance
         .checked_sub(result.net_amount_out)
         .ok_or(OxediumError::OverflowInSub)?;
-    // C-02: guard against division by zero when vault has no LP deposits yet
+    // Distribute LP fee: to stakers if any, otherwise redirect to protocol yield
     if vault_out.initial_balance > 0 {
         vault_out.cumulative_yield_per_lp = vault_out.cumulative_yield_per_lp
             .checked_add((result.lp_fee_amount as u128 * SCALE) / vault_out.initial_balance as u128)
             .ok_or(OxediumError::OverflowInAdd)?;
+        vault_out.protocol_yield = vault_out.protocol_yield
+            .checked_add(result.protocol_fee_amount)
+            .ok_or(OxediumError::OverflowInAdd)?;
+    } else {
+        // No stakers: LP fee has no recipients — redirect to protocol yield to prevent value loss
+        vault_out.protocol_yield = vault_out.protocol_yield
+            .checked_add(result.lp_fee_amount)
+            .and_then(|v| v.checked_add(result.protocol_fee_amount))
+            .ok_or(OxediumError::OverflowInAdd)?;
     }
-    vault_out.protocol_yield = vault_out.protocol_yield
-        .checked_add(result.protocol_fee_amount)
-        .ok_or(OxediumError::OverflowInAdd)?;
 
     // === 7. Transfer input tokens from user to vault_in ATA ===
     let cpi_accounts: token::Transfer<'_> = token::Transfer {

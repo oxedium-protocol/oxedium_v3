@@ -6,6 +6,15 @@ pub enum OxediumError {
     #[msg("Invalid Admin")]
     InvalidAdmin,
 
+    #[msg("Invalid Staker")]
+    InvalidStaker,
+
+    #[msg("Invalid Vault")]
+    InvalidVault,
+
+    #[msg("Invalid Price")]
+    InvalidPrice,
+
     #[msg("Overflow")]
     Overflow,
 
@@ -17,9 +26,6 @@ pub enum OxediumError {
     
     #[msg("Insufficient liquidity in the vault")]
     InsufficientLiquidity,
-
-    #[msg("Stoptap activated")]
-    StoptapActivated,
 
     #[msg("Overflow in mul")]
     OverflowInMul,
@@ -47,4 +53,7 @@ pub enum OxediumError {
 
     #[msg("Amount must be greater than zero")]
     ZeroAmount,
+
+    #[msg("Input and output tokens must be different")]
+    SameMint,
 }
