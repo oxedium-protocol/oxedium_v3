@@ -5,7 +5,7 @@ use oxedium_program::utils::SCALE;
 
 #[test]
 fn zero_balance_returns_zero() {
-    let yield_amount = calculate_staker_yield(1_000 * SCALE, 0, 0);
+    let yield_amount = calculate_staker_yield(1_000 * SCALE, 0, 0).unwrap();
     assert_eq!(yield_amount, 0);
 }
 
@@ -13,7 +13,7 @@ fn zero_balance_returns_zero() {
 fn no_yield_change_returns_zero() {
     // current == last → delta = 0 → yield = 0
     let cumulative = 500 * SCALE;
-    let yield_amount = calculate_staker_yield(cumulative, 1_000_000, cumulative);
+    let yield_amount = calculate_staker_yield(cumulative, 1_000_000, cumulative).unwrap();
     assert_eq!(yield_amount, 0);
 }
 
@@ -26,7 +26,7 @@ fn basic_yield_calculation() {
     // total = 1 * SCALE * 1_000_000 / SCALE = 1_000_000
     let last = 10 * SCALE;
     let current = 11 * SCALE;
-    let yield_amount = calculate_staker_yield(current, 1_000_000, last);
+    let yield_amount = calculate_staker_yield(current, 1_000_000, last).unwrap();
     assert_eq!(yield_amount, 1_000_000);
 }
 
@@ -37,7 +37,7 @@ fn fractional_yield_per_lp() {
     // total = (SCALE/2) * 1_000 / SCALE = 500
     let last = 0u128;
     let current = SCALE / 2;
-    let yield_amount = calculate_staker_yield(current, 1_000, last);
+    let yield_amount = calculate_staker_yield(current, 1_000, last).unwrap();
     assert_eq!(yield_amount, 500);
 }
 
@@ -48,7 +48,7 @@ fn large_balance_and_yield() {
     // expected yield = 10 * 1_000_000_000 = 10_000_000_000
     let last = 0u128;
     let current = 10 * SCALE;
-    let yield_amount = calculate_staker_yield(current, 1_000_000_000, last);
+    let yield_amount = calculate_staker_yield(current, 1_000_000_000, last).unwrap();
     assert_eq!(yield_amount, 10_000_000_000);
 }
 
@@ -60,7 +60,7 @@ fn yield_rounds_down_on_fractional() {
     // total = 1 * (SCALE/2) / SCALE = 0 (integer division)
     let last = 0u128;
     let current = 1u128;
-    let yield_amount = calculate_staker_yield(current, (SCALE / 2) as u64, last);
+    let yield_amount = calculate_staker_yield(current, (SCALE / 2) as u64, last).unwrap();
     assert_eq!(yield_amount, 0);
 }
 
@@ -71,17 +71,17 @@ fn current_less_than_last_returns_zero() {
     // simulates a rebase or reset scenario — must not panic
     let last = 500 * SCALE;
     let current = 100 * SCALE;
-    let yield_amount = calculate_staker_yield(current, 1_000_000, last);
+    let yield_amount = calculate_staker_yield(current, 1_000_000, last).unwrap();
     assert_eq!(yield_amount, 0);
 }
 
 // --- saturation / overflow protection ---
 
 #[test]
-fn overflow_in_mul_returns_zero() {
-    // delta = u128::MAX, balance = 2 → multiplication overflows → returns 0
-    let yield_amount = calculate_staker_yield(u128::MAX, 2, 0);
-    assert_eq!(yield_amount, 0);
+fn overflow_in_mul_returns_err() {
+    // delta = u128::MAX, balance = 2 → multiplication overflows → returns Err
+    let result = calculate_staker_yield(u128::MAX, 2, 0);
+    assert!(result.is_err());
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn result_saturates_at_u64_max() {
     // balance = 1_000_000 → total = u64::MAX / 1_000_000 * 1_000_000 ≈ u64::MAX
     let delta = (u64::MAX as u128) / SCALE; // tiny per-token yield
     let current = delta;
-    let yield_amount = calculate_staker_yield(current, SCALE as u64, last);
+    let yield_amount = calculate_staker_yield(current, SCALE as u64, last).unwrap();
     // total = delta * SCALE / SCALE = delta, which fits in u64
     assert_eq!(yield_amount, delta as u64);
 }

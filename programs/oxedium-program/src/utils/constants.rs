@@ -3,4 +3,8 @@ pub const STAKER_SEED: &str = "staker-seed";
 pub const OXEDIUM_SEED: &str = "oxedium-seed";
 pub const ADMIN_SEED: &str = "admin-seed";
 
-pub  const SCALE: u128 = 1_000_000_000_000;
+pub const OXE_GLOBAL_SEED: &str = "oxe-global-seed";
+pub const OXE_STAKER_SEED: &str = "oxe-staker-seed";
+pub const OXE_CHECKPOINT_SEED: &str = "oxe-checkpoint-seed";
+
+pub const SCALE: u128 = 1_000_000_000_000;

@@ -13,7 +13,7 @@ fn make_vault(base_fee_bps: u64, initial_balance: u64, current_balance: u64) -> 
         initial_balance,
         current_balance,
         cumulative_yield_per_lp: 0,
-        protocol_yield: 0,
+        oxe_cumulative_yield_per_staker: 0,
     }
 }
 

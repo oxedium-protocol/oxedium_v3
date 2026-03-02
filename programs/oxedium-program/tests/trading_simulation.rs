@@ -13,10 +13,9 @@
 //!   Phase 7  – Yield:     Alice's and Bob's SOL yield is verified
 //!   Phase 8  – Unstake:   normal exit (vault healthy, no exit fee)
 //!   Phase 9  – Unstake:   exit fee triggered (vault health < 50 %)
-//!   Phase 10 – Collect:   admin collects protocol yield from SOL vault
 
 use anchor_lang::prelude::Pubkey;
-use oxedium_program::components::{calculate_staker_yield, compute_swap_math};
+use oxedium_program::components::{calculate_fee_amount, calculate_staker_yield, compute_swap_math};
 use oxedium_program::states::{Staker, Vault};
 use pyth_solana_receiver_sdk::price_update::PriceFeedMessage;
 
@@ -63,7 +62,7 @@ fn make_vault(base_fee_bps: u64, protocol_fee_bps: u64) -> Vault {
         initial_balance: 0,
         current_balance: 0,
         cumulative_yield_per_lp: 0,
-        protocol_yield: 0,
+        oxe_cumulative_yield_per_staker: 0,
     }
 }
 
@@ -85,7 +84,7 @@ fn do_stake(staker: &mut Staker, vault: &mut Vault, amount: u64) {
         vault.cumulative_yield_per_lp,
         staker.staked_amount,
         staker.last_cumulative_yield,
-    );
+    ).expect("yield calc overflow");
     staker.pending_claim += earned;
     staker.last_cumulative_yield = vault.cumulative_yield_per_lp;
     staker.staked_amount += amount;
@@ -97,7 +96,6 @@ fn do_stake(staker: &mut Staker, vault: &mut Vault, amount: u64) {
 ///   vault_in.current  += amount_in
 ///   vault_out.current -= net_out
 ///   vault_out.cumulative_yield_per_lp += lp_fee * SCALE / initial_balance
-///   vault_out.protocol_yield += protocol_fee
 fn do_swap(
     vault_in: &mut Vault,
     vault_out: &mut Vault,
@@ -124,7 +122,6 @@ fn do_swap(
         vault_out.cumulative_yield_per_lp +=
             (result.lp_fee_amount as u128 * SCALE) / vault_out.initial_balance as u128;
     }
-    vault_out.protocol_yield += result.protocol_fee_amount;
 
     (
         result.swap_fee_bps,
@@ -141,7 +138,7 @@ fn do_claim(staker: &mut Staker, vault: &mut Vault) -> u64 {
         vault.cumulative_yield_per_lp,
         staker.staked_amount,
         staker.last_cumulative_yield,
-    );
+    ).expect("yield calc overflow");
     staker.pending_claim += earned;
     staker.last_cumulative_yield = vault.cumulative_yield_per_lp;
 
@@ -151,53 +148,51 @@ fn do_claim(staker: &mut Staker, vault: &mut Vault) -> u64 {
     payout
 }
 
-/// Mirrors unstaking.rs: snapshot yield, apply exit fee when vault health < 50 %,
-/// reduce staked amount and both vault balances by the full requested amount;
-/// the exit fee stays in the vault and is credited to protocol_yield.
-/// Returns the amount the user actually receives.
+/// Mirrors unstaking.rs exactly: snapshot yield, apply quadratic exit-fee curve,
+/// reduce vault balances, redistribute exit fee into cumulative_yield_per_lp.
+/// Returns the amount the user actually receives (after exit fee).
 fn do_unstake(staker: &mut Staker, vault: &mut Vault, amount: u64) -> u64 {
     assert!(staker.staked_amount >= amount, "insufficient stake");
 
-    // snapshot yield
+    // snapshot yield before balance changes
     let earned = calculate_staker_yield(
         vault.cumulative_yield_per_lp,
         staker.staked_amount,
         staker.last_cumulative_yield,
-    );
+    ).expect("yield calc overflow");
     staker.pending_claim += earned;
     staker.last_cumulative_yield = vault.cumulative_yield_per_lp;
 
-    // dynamic exit fee (mirrors C-01 guard against division by zero)
-    let liquidity_ratio = if vault.initial_balance == 0 {
+    // quadratic exit fee curve on health deficit (mirrors unstaking.rs)
+    let health = if vault.initial_balance == 0 {
         100u128
     } else {
         (vault.current_balance as u128 * 100) / vault.initial_balance as u128
     };
+    let deficit = 100u128.saturating_sub(health);
+    let curved = deficit * deficit / 100;
+    let exit_fee_bps = (vault.max_exit_fee_bps as u128 * curved / 100) as u64;
 
-    let exit_fee = if liquidity_ratio < 50 {
-        amount * 200 / 10_000 // 2 %
+    let unstake_amount = if exit_fee_bps > 0 {
+        calculate_fee_amount(amount, exit_fee_bps, 0)
+            .expect("exit fee calc failed")
+            .0
     } else {
-        0
+        amount
     };
-
-    let user_receives = amount - exit_fee;
 
     staker.staked_amount -= amount;
     vault.initial_balance -= amount;
-    vault.current_balance -= amount; // full amount leaves accounting…
-    if exit_fee > 0 {
-        vault.protocol_yield += exit_fee; // …but fee stays physically in ATA
+    vault.current_balance -= unstake_amount;
+
+    // exit fee stays in vault, redistributed to remaining LP stakers
+    let exit_fee = amount - unstake_amount;
+    if exit_fee > 0 && vault.initial_balance > 0 {
+        vault.cumulative_yield_per_lp +=
+            (exit_fee as u128 * SCALE) / vault.initial_balance as u128;
     }
 
-    user_receives
-}
-
-/// Mirrors collect.rs: transfer protocol_yield to admin, reduce vault balance.
-fn do_collect(vault: &mut Vault) -> u64 {
-    let amount = vault.protocol_yield;
-    vault.current_balance -= amount;
-    vault.protocol_yield = 0;
-    amount
+    unstake_amount
 }
 
 // ─── Simulation test ─────────────────────────────────────────────────────────
@@ -255,14 +250,13 @@ fn simulate_sol_usdc_trading() {
 
     // USDC vault sends only the net amount; fees stay physically in vault
     assert_eq!(usdc_vault.current_balance, 17_820_630_000);
-    assert_eq!(usdc_vault.protocol_yield, 90_000);
 
     // Cumulative yield accumulator: 540_000 × SCALE / 18_000_000_000 = 30_000_000
     assert_eq!(usdc_vault.cumulative_yield_per_lp, 30_000_000);
 
     // Carol's claimable yield = 30_000_000 × 18_000_000_000 / SCALE = 540_000 (all lp fees)
     let carol_yield_1 =
-        calculate_staker_yield(usdc_vault.cumulative_yield_per_lp, carol.staked_amount, 0);
+        calculate_staker_yield(usdc_vault.cumulative_yield_per_lp, carol.staked_amount, 0).unwrap();
     assert_eq!(carol_yield_1, 540_000);
 
     // ── Phase 3: Swap 2 — 5 SOL → USDC (slight imbalance) ─────────────────
@@ -298,7 +292,6 @@ fn simulate_sol_usdc_trading() {
 
     assert_eq!(sol_vault.current_balance, 116_000_000_000);
     assert_eq!(usdc_vault.current_balance, 16_923_780_000);
-    assert_eq!(usdc_vault.protocol_yield, 540_000);
 
     // Cumulative: prev(30_000_000) + 2_700_000 × SCALE / 18B = 30_000_000 + 150_000_000 = 180_000_000
     assert_eq!(usdc_vault.cumulative_yield_per_lp, 180_000_000);
@@ -338,7 +331,6 @@ fn simulate_sol_usdc_trading() {
 
     assert_eq!(sol_vault.current_balance, 126_000_000_000);
     assert_eq!(usdc_vault.current_balance, 15_136_200_000);
-    assert_eq!(usdc_vault.protocol_yield, 1_440_000);
 
     // Cumulative: 180_000_000 + 11_520_000 × SCALE / 18B = 180_000_000 + 640_000_000 = 820_000_000
     assert_eq!(usdc_vault.cumulative_yield_per_lp, 820_000_000);
@@ -378,7 +370,6 @@ fn simulate_sol_usdc_trading() {
 
     assert_eq!(usdc_vault.current_balance, 18_736_200_000);
     assert_eq!(sol_vault.current_balance, 106_152_000_000);
-    assert_eq!(sol_vault.protocol_yield, 10_000_000);
 
     // SOL cumulative: 142_000_000 × SCALE / 110B = 1_290_909_090 (floor)
     assert_eq!(sol_vault.cumulative_yield_per_lp, 1_290_909_090);
@@ -404,7 +395,7 @@ fn simulate_sol_usdc_trading() {
         sol_vault.cumulative_yield_per_lp,
         alice.staked_amount,
         alice.last_cumulative_yield,
-    );
+    ).unwrap();
     // 1_290_909_090 × 100_000_000_000 / SCALE = 129_090_909 lamports
     assert_eq!(alice_yield, 129_090_909);
 
@@ -413,7 +404,7 @@ fn simulate_sol_usdc_trading() {
         sol_vault.cumulative_yield_per_lp,
         bob.staked_amount,
         bob.last_cumulative_yield,
-    );
+    ).unwrap();
     // 1_290_909_090 × 10_000_000_000 / SCALE = 12_909_090 lamports (floor)
     assert_eq!(bob_yield, 12_909_090);
 
@@ -426,13 +417,12 @@ fn simulate_sol_usdc_trading() {
 
     let alice_receives = do_unstake(&mut alice, &mut sol_vault, 5_000_000_000);
 
-    // Vault health before unstake: 106_164_000_000 / 110_000_000_000 ≈ 96 % — well above 50 %
+    // Vault health before unstake: 106_152_000_000 / 110_000_000_000 ≈ 96 % — well above 50 %
     // → no exit fee, Alice receives her full 5 SOL
     assert_eq!(alice_receives, 5_000_000_000);
     assert_eq!(alice.staked_amount, 95_000_000_000);
     assert_eq!(sol_vault.initial_balance, 105_000_000_000);
     assert_eq!(sol_vault.current_balance, 101_152_000_000);
-    assert_eq!(sol_vault.protocol_yield, 10_000_000); // unchanged
     assert_eq!(usdc_vault.current_balance, usdc_before_unstake); // USDC vault untouched
 
     // Pending yield was snapshotted before exit
@@ -450,25 +440,14 @@ fn simulate_sol_usdc_trading() {
 
     let dave_receives = do_unstake(&mut dave, &mut distressed_vault, 1_000_000_000);
 
-    // Exit fee = 2 % of 1_000_000_000 = 20_000_000
-    // Dave receives: 1_000_000_000 − 20_000_000 = 980_000_000
-    assert_eq!(dave_receives, 980_000_000);
-    assert_eq!(distressed_vault.protocol_yield, 20_000_000);
+    // health = 8_000_000_000 * 100 / 18_000_000_000 = 44
+    // deficit = 56, curved = 56² / 100 = 31
+    // exit_fee_bps = 10_000 * 31 / 100 = 3_100 bps
+    // fee = 1_000_000_000 * 3_100 / 10_000 = 310_000_000
+    // Dave receives: 1_000_000_000 − 310_000_000 = 690_000_000
+    assert_eq!(dave_receives, 690_000_000);
 
-    // Both balances decrease by the full requested amount (fee stays in ATA)
+    // initial_balance decreases by full amount; current_balance by net amount only
     assert_eq!(distressed_vault.initial_balance, 17_000_000_000);
-    assert_eq!(distressed_vault.current_balance, 7_000_000_000);
-
-    // ── Phase 10: Admin collects protocol yield from SOL vault ───────────────
-
-    let sol_current_before_collect = sol_vault.current_balance;
-    let collected = do_collect(&mut sol_vault);
-
-    // Protocol yield was accumulated from the rebalancing swap (phase 5): 10_000_000 lamports
-    assert_eq!(collected, 10_000_000);
-    assert_eq!(sol_vault.protocol_yield, 0);
-    assert_eq!(
-        sol_vault.current_balance,
-        sol_current_before_collect - 10_000_000
-    );
+    assert_eq!(distressed_vault.current_balance, 7_310_000_000);
 }

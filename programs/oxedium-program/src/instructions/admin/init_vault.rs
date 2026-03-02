@@ -28,7 +28,7 @@ pub fn init_vault(
     vault.initial_balance = 0;
     vault.current_balance = 0;
     vault.cumulative_yield_per_lp = 0;
-    vault.protocol_yield = 0;
+    vault.oxe_cumulative_yield_per_staker = 0;
 
     msg!("InitVault {{mint: {}, base_fee: {}, protocol_fee: {}, max_exit_fee: {}, max_age_price: {}}}",
         vault.token_mint.key(),
@@ -55,7 +55,7 @@ pub struct InitVaultInstructionAccounts<'info> {
         payer = signer,
         seeds = [VAULT_SEED.as_bytes(), token_mint.key().as_ref()],
         bump,
-        space = 8 + 8 + 8 + 8 + 32 + 32 + 8 + 8 + 8 + 16 + 8,
+        space = 8 + 8 + 8 + 8 + 32 + 32 + 8 + 8 + 8 + 16 + 16,
     )]
     pub vault_pda: Account<'info, Vault>,
 

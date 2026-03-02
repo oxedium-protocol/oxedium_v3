@@ -11,7 +11,7 @@ pub fn unstaking(ctx: Context<UnstakingInstructionAccounts>, amount: u64) -> Res
     let vault: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda;
     let staker: &mut Account<'_, Staker> = &mut ctx.accounts.staker_pda;
 
-    require!(staker.staked_amount >= amount, OxediumError::Overflow);
+    require!(staker.staked_amount >= amount, OxediumError::InsufficientBalance);
 
     let cumulative_yield: u128 = vault.cumulative_yield_per_lp;
     let last_cumulative_yield: u128 = staker.last_cumulative_yield;
@@ -48,7 +48,7 @@ pub fn unstaking(ctx: Context<UnstakingInstructionAccounts>, amount: u64) -> Res
         unstake_amount)?;
 
     staker.pending_claim = staker.pending_claim
-        .checked_add(calculate_staker_yield(cumulative_yield, staker.staked_amount, last_cumulative_yield))
+        .checked_add(calculate_staker_yield(cumulative_yield, staker.staked_amount, last_cumulative_yield)?)
         .ok_or(OxediumError::OverflowInAdd)?;
     staker.last_cumulative_yield = cumulative_yield;
     staker.staked_amount = staker.staked_amount

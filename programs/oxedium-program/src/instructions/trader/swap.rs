@@ -8,8 +8,8 @@ use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 use crate::{
     components::compute_swap_math,
     events::SwapEvent,
-    states::Vault,
-    utils::{OxediumError, SCALE, VAULT_SEED},
+    states::{OxeGlobalState, Vault},
+    utils::{OXE_GLOBAL_SEED, OxediumError, SCALE, VAULT_SEED},
 };
 
 /// Swap tokens from one vault to another
@@ -90,14 +90,15 @@ pub fn swap(
         vault_out.cumulative_yield_per_lp = vault_out.cumulative_yield_per_lp
             .checked_add((result.lp_fee_amount as u128 * SCALE) / vault_out.initial_balance as u128)
             .ok_or(OxediumError::OverflowInAdd)?;
-        vault_out.protocol_yield = vault_out.protocol_yield
-            .checked_add(result.protocol_fee_amount)
-            .ok_or(OxediumError::OverflowInAdd)?;
-    } else {
-        vault_out.protocol_yield = vault_out.protocol_yield
-            .checked_add(result.lp_fee_amount)
-            .and_then(|v| v.checked_add(result.protocol_fee_amount))
-            .ok_or(OxediumError::OverflowInAdd)?;
+
+        let total_staked = ctx.accounts.oxe_global_state.total_staked;
+        if total_staked > 0 {
+            vault_out.oxe_cumulative_yield_per_staker = vault_out.oxe_cumulative_yield_per_staker
+                .checked_add(
+                    (result.protocol_fee_amount as u128 * SCALE) / total_staked as u128,
+                )
+                .ok_or(OxediumError::OverflowInAdd)?;
+        }
     }
 
     let cpi_accounts: token::Transfer<'_> = token::Transfer {
@@ -182,6 +183,9 @@ pub struct SwapInstructionAccounts<'info> {
 
     #[account(mut, token::authority = vault_pda_out, token::mint = token_mint_out)]
     pub vault_ata_out: Account<'info, TokenAccount>,
+
+    #[account(seeds = [OXE_GLOBAL_SEED.as_bytes()], bump)]
+    pub oxe_global_state: Account<'info, OxeGlobalState>,
 
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,

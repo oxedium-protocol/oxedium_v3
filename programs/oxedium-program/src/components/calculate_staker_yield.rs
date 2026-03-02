@@ -1,4 +1,4 @@
-use crate::utils::SCALE;
+use crate::utils::{OxediumError, SCALE};
 
 /// Calculates the staker's yield based on cumulative yield per LP token.
 ///
@@ -8,29 +8,30 @@ use crate::utils::SCALE;
 /// * `last_recorded_yield` - The cumulative yield per LP token at the last update for this staker
 ///
 /// # Returns
-/// * `u64` - The amount of yield earned by the staker since the last update
+/// * `Result<u64, OxediumError>` - The amount of yield earned by the staker since the last update
 pub fn calculate_staker_yield(
     current_cumulative_yield: u128,
     staker_balance: u64,
     last_recorded_yield: u128,
-) -> u64 {
+) -> Result<u64, OxediumError> {
     // Calculate the yield difference per LP token since the last update
     let delta_yield_per_lp = match current_cumulative_yield.checked_sub(last_recorded_yield) {
         Some(val) => val,
-        None => return 0, // If underflow occurs, return 0 yield
+        None => return Ok(0), // If underflow occurs, return 0 yield
     };
 
     // Multiply the yield per LP token by the staker's LP balance to get total yield
     let total_yield = delta_yield_per_lp
         .checked_mul(staker_balance as u128)
-        .unwrap_or(0); // On overflow, default to 0
+        .ok_or(OxediumError::OverflowInMul)?;
 
     // Scale down the yield to normal units by dividing by SCALE
-    let final_yield = match total_yield.checked_div(SCALE) {
-        Some(val) => val,
-        None => return 0, // If division by zero or underflow occurs, return 0
-    };
+    // SCALE is a non-zero constant so checked_div can only fail if total_yield == 0,
+    // which is handled by the Ok(0) path above; the ? is kept for exhaustiveness.
+    let final_yield = total_yield
+        .checked_div(SCALE)
+        .ok_or(OxediumError::OverflowInDiv)?;
 
     // Saturating cast to u64: cap at u64::MAX rather than silently truncating
-    final_yield.min(u64::MAX as u128) as u64
+    Ok(final_yield.min(u64::MAX as u128) as u64)
 }

@@ -32,7 +32,7 @@ pub fn staking(ctx: Context<StakingInstructionAccounts>, amount: u64) -> Result<
     staker.vault = vault_pda_key;
 
     staker.pending_claim = staker.pending_claim
-        .checked_add(calculate_staker_yield(cumulative_yield, staker_balance, last_cumulative_yield))
+        .checked_add(calculate_staker_yield(cumulative_yield, staker_balance, last_cumulative_yield)?)
         .ok_or(OxediumError::OverflowInAdd)?;
     staker.last_cumulative_yield = cumulative_yield;
     staker.staked_amount = staker.staked_amount

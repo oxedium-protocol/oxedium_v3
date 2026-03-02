@@ -5,6 +5,7 @@ use anchor_lang::prelude::*;
 use instructions::admin::*;
 use instructions::staker::*;
 use instructions::trader::*;
+use instructions::oxe_staker::*;
 
 pub mod states;
 pub mod instructions;
@@ -35,8 +36,8 @@ pub mod oxedium_program {
         instructions::admin::update_vault(ctx, base_fee_bps, protocol_fee_bps, max_age_price, max_exit_fee_bps)
     }
 
-    pub fn collect(ctx: Context<CollectInstructionAccounts>) -> Result<()> {
-        instructions::admin::collect(ctx)
+    pub fn init_oxe_global(ctx: Context<InitOxeGlobalInstructionAccounts>) -> Result<()> {
+        instructions::admin::init_oxe_global(ctx)
     }
 
     // Staker instructions
@@ -55,5 +56,18 @@ pub mod oxedium_program {
     // Trader instruction
     pub fn swap(ctx: Context<SwapInstructionAccounts>, amount_in: u64, minimum_out: u64) -> Result<()> {
         instructions::trader::swap(ctx, amount_in, minimum_out)
+    }
+
+    // OXE staker instructions
+    pub fn oxe_stake(ctx: Context<OxeStakeInstructionAccounts>, amount: u64) -> Result<()> {
+        instructions::oxe_staker::oxe_stake(ctx, amount)
+    }
+
+    pub fn oxe_unstake(ctx: Context<OxeUnstakeInstructionAccounts>, amount: u64) -> Result<()> {
+        instructions::oxe_staker::oxe_unstake(ctx, amount)
+    }
+
+    pub fn oxe_claim(ctx: Context<OxeClaimInstructionAccounts>) -> Result<()> {
+        instructions::oxe_staker::oxe_claim(ctx)
     }
 }

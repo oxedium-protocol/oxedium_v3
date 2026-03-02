@@ -18,7 +18,7 @@ pub fn claim(ctx: Context<ClaimInstructionAccounts>) -> Result<()> {
     let staker_last_cumulative_yield: u128 = staker.last_cumulative_yield;
     let staker_pending_claim: u64 = staker.pending_claim;
 
-    let staker_yield: u64 = calculate_staker_yield(cumulative_yield_per_lp, staker_balance, staker_last_cumulative_yield);
+    let staker_yield: u64 = calculate_staker_yield(cumulative_yield_per_lp, staker_balance, staker_last_cumulative_yield)?;
     let amount: u64 = staker_yield
         .checked_add(staker_pending_claim)
         .ok_or(OxediumError::OverflowInAdd)?;

@@ -32,7 +32,7 @@ fn make_vault(
         initial_balance,
         current_balance,
         cumulative_yield_per_lp: 0,
-        protocol_yield: 0,
+        oxe_cumulative_yield_per_staker: 0,
     }
 }
 
