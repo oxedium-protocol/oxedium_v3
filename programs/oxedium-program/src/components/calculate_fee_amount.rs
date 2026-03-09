@@ -32,21 +32,17 @@ pub fn calculate_fee_amount(
     Ok((amount_after_fee, lp_fee, protocol_fee))
 }
 
-/// Helper function to calculate fee in basis points (bps) with CEIL rounding
-/// 
-/// # Arguments
-/// * `amount` - The base amount to calculate fee on
-/// * `bps` - Fee in basis points (1 bps = 0.01%)
+/// Helper function to calculate fee in basis points (bps) with ceiling rounding.
 ///
-/// # Returns
-/// * `Result<u64, TyrbineError>` - Calculated fee, rounded up to ensure at least 1 unit if applicable
+/// Uses `ceil(amount * bps / 10_000)` to prevent fee evasion via dust amounts
+/// while remaining proportional for all meaningful values.
 fn fee(amount: u64, bps: u64) -> Result<u64, OxediumError> {
     if bps == 0 || amount == 0 {
         return Ok(0);
     }
-    let f = amount
-        .checked_mul(bps).ok_or(OxediumError::Overflow)?
-        / 10_000;
-    Ok(f.max(1).min(amount)) // at least 1, but no more than amount
+    // ceil(amount * bps / 10_000) via (amount * bps + 9_999) / 10_000.
+    // amount <= u64::MAX, bps <= 10_000, so amount*bps+9_999 fits in u128.
+    let f = ((amount as u128 * bps as u128 + 9_999) / 10_000) as u64;
+    Ok(f.min(amount))
 }
 

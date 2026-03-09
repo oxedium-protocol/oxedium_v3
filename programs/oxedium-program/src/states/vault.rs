@@ -15,7 +15,5 @@ pub struct Vault {
     pub current_balance: u64,
     
     pub cumulative_yield_per_lp: u128,
-    /// Cumulative protocol yield per OXE staked (scaled by SCALE).
-    /// Increases each swap when OXE stakers exist.
     pub oxe_cumulative_yield_per_staker: u128,
 }

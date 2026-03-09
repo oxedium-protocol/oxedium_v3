@@ -57,12 +57,6 @@ pub enum OxediumError {
     #[msg("Input and output tokens must be different")]
     SameMint,
 
-    #[msg("Invalid OXE mint")]
-    InvalidMint,
-
     #[msg("Insufficient staked balance")]
     InsufficientBalance,
-
-    #[msg("Odd number of remaining accounts, expected vault+checkpoint pairs")]
-    InvalidAccountsLength,
 }

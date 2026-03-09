@@ -29,9 +29,9 @@ There are no token pairs, no bonding curves, and no impermanent loss — pricing
 | `swap` | Trader | → vault_in ATA | ← vault_out ATA | `current_balance_in ↑`, `current_balance_out ↓`, `cumulative_yield_per_lp ↑`, `oxe_cumulative_yield_per_staker ↑` |
 | `claim` | LP | — | ← vault ATA | `current_balance ↓`, `pending_claim = 0` |
 | `unstaking` | LP | — | ← vault ATA | `initial_balance ↓`, `current_balance ↓`, exit fee → `cumulative_yield_per_lp ↑` |
-| `oxe_stake` | OXE staker | → OXE escrow ATA | — | `total_staked ↑`, `staked_amount ↑`, checkpoints snapshotted |
-| `oxe_unstake` | OXE staker | — | ← OXE escrow ATA | `total_staked ↓`, `staked_amount ↓`, checkpoints snapshotted |
-| `oxe_claim` | OXE staker | — | ← vault ATA | `current_balance ↓`, `pending_yield = 0` |
+| `oxe_stake` | OXE staker | → OXE escrow ATA | — | `oxe_balance ↑`, `total_oxe_staked ↑` |
+| `oxe_unstake` | OXE staker | — | ← OXE escrow ATA | positions flushed via `remaining_accounts`, `oxe_balance ↓`, `total_oxe_staked ↓` |
+| `oxe_claim` | OXE staker | — | ← vault ATA | `current_balance ↓`, `pending_claim = 0`, `last_cumulative_yield` advanced |
 
 ---
 
@@ -52,18 +52,18 @@ There are no token pairs, no bonding curves, and no impermanent loss — pricing
                  │                          │
        one per LP staker per vault     one per OXE staker per vault
                  │                          │
-          ┌──────▼──────┐          ┌────────▼────────┐
-          │  Staker PDA │          │ OxeCheckpoint   │  ← tracks yield per vault
-          └─────────────┘          └─────────────────┘
+          ┌──────▼──────┐          ┌────────▼──────────┐
+          │  Staker PDA │          │ OxeVaultPosition  │  ← created lazily on first oxe_claim
+          └─────────────┘          └───────────────────┘
                                             │
                                    one per OXE staker (global)
                                             │
                                    ┌────────▼────────┐
-                                   │  OxeStaker PDA  │  staked_amount
+                                   │  OxeStaker PDA  │  oxe_balance
                                    └─────────────────┘
                                             │
                                    ┌────────▼────────┐
-                                   │ OxeGlobalState  │  total_staked, oxe_mint
+                                   │   OxeGlobal     │  total_oxe_staked, oxe_mint
                                    │  + escrow ATA   │  holds all locked OXE
                                    └─────────────────┘
 ```
@@ -77,9 +77,9 @@ Each vault is fully self-contained: it holds its own token ATA and signs all out
 | `Admin` | `["oxedium-seed", "admin-seed"]` | Admin pubkey (authorization only) |
 | `Vault` | `["vault-seed", token_mint]` | Balances, fee params, cumulative yield accumulators, oracle config |
 | `Staker` | `["staker-seed", vault_pda, user]` | LP staked amount, last yield checkpoint, claimable rewards |
-| `OxeGlobalState` | `["oxe-global-seed"]` | OXE mint, total OXE staked; signs escrow ATA |
-| `OxeStaker` | `["oxe-staker-seed", user]` | OXE staked amount per user |
-| `OxeCheckpoint` | `["oxe-checkpoint-seed", vault_pda, user]` | Per-user per-vault OXE yield checkpoint |
+| `OxeGlobal` | `["oxedium-seed", "oxe-global-seed"]` | OXE mint, total OXE staked; signs escrow ATA |
+| `OxeStaker` | `["oxe-staker-seed", user]` | OXE balance per user |
+| `OxeVaultPosition` | `["oxe-position-seed", vault_pda, user]` | Per-user per-vault yield position (lazy creation) |
 
 ### Vault state
 
@@ -157,30 +157,40 @@ OXE is the protocol token. Locking OXE entitles the holder to a share of **proto
 ### Setup
 
 1. Admin calls `init_oxe_global(oxe_mint)` once to create the global escrow.
-2. User calls `oxe_stake(amount, remaining=[vault+checkpoint pairs])` — on first call the `OxeStaker` and `OxeCheckpoint` accounts are created automatically.
-3. To receive rewards from additional vaults, pass their `vault_pda` + `oxe_checkpoint_pda` pairs in `remaining_accounts`.
+2. User calls `oxe_stake(amount)` — on first call the `OxeStaker` account is created automatically.
+3. To start earning from a vault, call `oxe_claim(vault)` once — this creates the `OxeVaultPosition` and anchors the starting point. No retroactive yield is awarded.
 
-### Checkpoint mechanism
+### Position mechanism
 
-Because OXE stakers earn from multiple vaults simultaneously, each staker holds one `OxeCheckpoint` per vault. Before any balance change (stake or unstake), **all checkpoints are snapshotted** at the current balance to capture yield earned so far:
+Because OXE stakers earn from multiple vaults simultaneously, each staker holds one `OxeVaultPosition` per vault. Positions are created **lazily** on the first `oxe_claim` call for a given vault — not at stake time. This means a staker begins accumulating yield from a vault only after their first claim on it.
+
+Each position tracks:
+- `last_cumulative_yield` — value of `oxe_cumulative_yield_per_staker` at the last flush
+- `pending_claim` — yield captured but not yet transferred (populated by `oxe_unstake`)
+
+Yield earned since the last flush:
 
 ```
-pending_yield += (oxe_cumulative_yield_per_staker − last_checkpoint) × staked_amount / SCALE
+earned = (oxe_cumulative_yield_per_staker − last_cumulative_yield) × oxe_balance / SCALE
 ```
 
-Pass every `(vault_pda, oxe_checkpoint_pda)` pair you hold in `remaining_accounts` on each `oxe_stake` / `oxe_unstake` call to avoid losing accrued yield.
+### Unstaking OXE
+
+`oxe_unstake(amount, remaining=[vault_pda, position_pda, ...])` is instant — no lock-up or cooldown. OXE is transferred back from the global escrow ATA (signed by `OxeGlobal` PDA).
+
+Before reducing the balance, the instruction **flushes every vault position passed in `remaining_accounts`** using the pre-unstake balance — mirroring the LP unstaking pattern. This saves accumulated yield into `pending_claim` so it can be collected later via `oxe_claim`.
+
+Pass every `(vault_pda, oxe_position_pda)` pair you have an active position in. Positions not included will lose unclaimed yield once the balance reaches zero.
 
 ### Claiming OXE rewards
 
 Call `oxe_claim(vault)` for each vault separately. Rewards are paid in the **vault's native token** (e.g., claiming from the USDC vault yields USDC). The vault PDA signs the transfer from its ATA.
 
 ```
-claimable = pending_yield + (oxe_cumulative_yield_per_staker − last_checkpoint) × staked_amount / SCALE
+claimable = pending_claim + (oxe_cumulative_yield_per_staker − last_cumulative_yield) × oxe_balance / SCALE
 ```
 
-### Unstaking OXE
-
-`oxe_unstake(amount)` is instant — no lock-up or cooldown. OXE is transferred back from the global escrow ATA (signed by `OxeGlobalState` PDA). All checkpoints must be passed in `remaining_accounts` to preserve pending yield.
+After the transfer, `last_cumulative_yield` is advanced and `pending_claim` is reset to zero.
 
 ---
 
@@ -275,7 +285,7 @@ If `current_balance = 0`, the fee jumps directly to 10 000 bps.
 
 A flat `protocol_fee_bps` (set per vault) is applied separately and routed to OXE stakers:
 
-- **OXE stakers exist** (`total_staked > 0`) → fee is distributed via `oxe_cumulative_yield_per_staker` and stays in `current_balance` for future `oxe_claim` withdrawals.
+- **OXE stakers exist** (`total_oxe_staked > 0`) → fee is distributed via `oxe_cumulative_yield_per_staker` and stays in `current_balance` for future `oxe_claim` withdrawals.
 - **No OXE stakers yet** (bootstrap phase) → fee remains in `current_balance`, improving the vault's health ratio and benefiting LP stakers via lower exit fees.
 
 ### Safety check
@@ -304,8 +314,8 @@ Oxedium uses an **accumulator pattern** to distribute fees fairly without iterat
 // on every swap — LP yield
 cumulative_yield_per_lp += lp_fee_amount × SCALE / initial_balance
 
-// on every swap — OXE yield (when total_staked > 0)
-oxe_cumulative_yield_per_staker += protocol_fee_amount × SCALE / total_staked
+// on every swap — OXE yield (when total_oxe_staked > 0)
+oxe_cumulative_yield_per_staker += protocol_fee_amount × SCALE / total_oxe_staked
 ```
 
 `SCALE = 1_000_000_000_000` (10¹²) provides fixed-point precision.
@@ -328,7 +338,7 @@ This snapshot is taken on every position change so yield is never lost.
 |-------------|-------------|
 | `init_admin` | Initialize the Admin PDA (authorization account) |
 | `update_admin` | Transfer admin authority to a new pubkey |
-| `init_vault` | Create a new vault (`base_fee`, `max_age_price`, `max_exit_fee_bps`) |
+| `init_vault` | Create a new vault (`base_fee_bps`, `protocol_fee_bps`, `max_age_price`, `max_exit_fee_bps`) |
 | `update_vault` | Update `base_fee_bps`, `protocol_fee_bps`, `max_exit_fee_bps`, oracle config |
 | `init_oxe_global` | Initialize the OXE global state and escrow ATA (one-time, admin only) |
 
@@ -344,15 +354,15 @@ This snapshot is taken on every position change so yield is never lost.
 
 | Instruction | Arguments | Description |
 |-------------|-----------|-------------|
-| `oxe_stake` | `amount: u64`, `remaining: [vault+checkpoint pairs]` | Lock OXE tokens; snapshot all existing checkpoints at current balance |
-| `oxe_unstake` | `amount: u64`, `remaining: [vault+checkpoint pairs]` | Unlock OXE tokens instantly; snapshot all checkpoints first |
-| `oxe_claim` | — | Collect OXE staking rewards from a single vault (paid in vault's token) |
+| `oxe_stake` | `amount: u64` | Lock OXE tokens into the global escrow |
+| `oxe_unstake` | `amount: u64`, `remaining: [vault_pda, position_pda, ...]` | Flush yield for every active position, then unlock OXE tokens instantly |
+| `oxe_claim` | — | Collect OXE staking rewards from a single vault (paid in vault's token); first call initializes the position |
 
 ### Trader
 
 | Instruction | Arguments | Description |
 |-------------|-----------|-------------|
-| `swap` | `amount_in: u64`, `minimum_out: u64` | Swap tokens between two vaults with slippage protection |
+| `swap` | `amount_in: u64`, `minimum_out: u64` | Swap tokens between two vaults with slippage protection (`amount_in` must be > 0) |
 
 ---
 

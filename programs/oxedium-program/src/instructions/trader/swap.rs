@@ -8,8 +8,8 @@ use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 use crate::{
     components::compute_swap_math,
     events::SwapEvent,
-    states::{OxeGlobalState, Vault},
-    utils::{OXE_GLOBAL_SEED, OxediumError, SCALE, VAULT_SEED},
+    states::{OxeGlobal, Vault},
+    utils::{OxediumError, OXEDIUM_SEED, OXE_GLOBAL_SEED, SCALE, VAULT_SEED},
 };
 
 /// Swap tokens from one vault to another
@@ -38,9 +38,6 @@ pub fn swap(
         return Err(OxediumError::InvalidPythAccount.into());
     }
 
-    let oracle_in: Account<'_, PriceUpdateV2>  = ctx.accounts.pyth_price_account_in.clone();
-    let oracle_out: Account<'_, PriceUpdateV2>  = ctx.accounts.pyth_price_account_out.clone();
-
     let clock: Clock = Clock::get()?;
     let current_timestamp: i64 = clock.unix_timestamp;
 
@@ -68,8 +65,8 @@ pub fn swap(
 
     let result = compute_swap_math(
         amount_in,
-        oracle_in.price_message,
-        oracle_out.price_message,
+        ctx.accounts.pyth_price_account_in.price_message,
+        ctx.accounts.pyth_price_account_out.price_message,
         ctx.accounts.token_mint_in.decimals,
         ctx.accounts.token_mint_out.decimals,
         vault_in,
@@ -86,17 +83,27 @@ pub fn swap(
     vault_out.current_balance = vault_out.current_balance
         .checked_sub(result.net_amount_out)
         .ok_or(OxediumError::OverflowInSub)?;
+
+    // When initial_balance == 0 the vault has no LPs yet; fees are not distributed
+    // but remain in current_balance as excess liquidity, improving the health ratio
+    // for when LPs eventually join (bootstrap behaviour — intentional).
     if vault_out.initial_balance > 0 {
         vault_out.cumulative_yield_per_lp = vault_out.cumulative_yield_per_lp
             .checked_add((result.lp_fee_amount as u128 * SCALE) / vault_out.initial_balance as u128)
             .ok_or(OxediumError::OverflowInAdd)?;
 
-        let total_staked = ctx.accounts.oxe_global_state.total_staked;
-        if total_staked > 0 {
+        // Accumulate protocol fee per OXE staker using the same SCALE pattern.
+        // If no OXE has been staked yet, protocol fees remain in the vault as
+        // excess liquidity (improves vault health until stakers join).
+        let total_oxe = ctx.accounts.oxe_global_pda.total_oxe_staked;
+        if total_oxe > 0 && result.protocol_fee_amount > 0 {
+            let protocol_per_oxe = (result.protocol_fee_amount as u128)
+                .checked_mul(SCALE)
+                .ok_or(OxediumError::OverflowInMul)?
+                .checked_div(total_oxe as u128)
+                .ok_or(OxediumError::OverflowInDiv)?;
             vault_out.oxe_cumulative_yield_per_staker = vault_out.oxe_cumulative_yield_per_staker
-                .checked_add(
-                    (result.protocol_fee_amount as u128 * SCALE) / total_staked as u128,
-                )
+                .checked_add(protocol_per_oxe)
                 .ok_or(OxediumError::OverflowInAdd)?;
         }
     }
@@ -140,8 +147,8 @@ pub fn swap(
         token_out: vault_out.token_mint,
         amount_in: amount_in,
         amount_out: result.net_amount_out,
-        price_in: oracle_in.price_message.price.unsigned_abs(),
-        price_out: oracle_out.price_message.price.unsigned_abs(),
+        price_in: ctx.accounts.pyth_price_account_in.price_message.price.unsigned_abs(),
+        price_out: ctx.accounts.pyth_price_account_out.price_message.price.unsigned_abs(),
         lp_fee: result.lp_fee_amount,
         protocol_fee: result.protocol_fee_amount
     });
@@ -184,8 +191,8 @@ pub struct SwapInstructionAccounts<'info> {
     #[account(mut, token::authority = vault_pda_out, token::mint = token_mint_out)]
     pub vault_ata_out: Account<'info, TokenAccount>,
 
-    #[account(seeds = [OXE_GLOBAL_SEED.as_bytes()], bump)]
-    pub oxe_global_state: Account<'info, OxeGlobalState>,
+    #[account(seeds = [OXEDIUM_SEED.as_bytes(), OXE_GLOBAL_SEED.as_bytes()], bump)]
+    pub oxe_global_pda: Account<'info, OxeGlobal>,
 
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,

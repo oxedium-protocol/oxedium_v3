@@ -59,7 +59,7 @@ pub struct InitVaultInstructionAccounts<'info> {
     )]
     pub vault_pda: Account<'info, Vault>,
 
-    #[account(mut, seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
+    #[account(seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
     pub admin_pda: Account<'info, Admin>,
 
     pub system_program: Program<'info, System>,

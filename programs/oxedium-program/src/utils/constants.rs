@@ -5,6 +5,6 @@ pub const ADMIN_SEED: &str = "admin-seed";
 
 pub const OXE_GLOBAL_SEED: &str = "oxe-global-seed";
 pub const OXE_STAKER_SEED: &str = "oxe-staker-seed";
-pub const OXE_CHECKPOINT_SEED: &str = "oxe-checkpoint-seed";
+pub const OXE_POSITION_SEED: &str = "oxe-position-seed";
 
 pub const SCALE: u128 = 1_000_000_000_000;

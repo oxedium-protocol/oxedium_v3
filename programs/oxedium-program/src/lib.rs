@@ -14,12 +14,13 @@ pub mod utils;
 pub mod events;
 
 
-declare_id!("oxe3zgfkaGph4X5bv4RZRFUcQXZcXxK9fxDizCtPZv7");
+declare_id!("oxe2YhrQZ8yjbaHfp6mQXfSJd124qK2sRpdH9ePZXh1");
 
 #[program]
 pub mod oxedium_program {
     use super::*;
 
+    // Admin instructions
     pub fn init_admin(ctx: Context<InitAdminInstructionAccounts>) -> Result<()> {
         instructions::admin::init_admin(ctx)
     }
@@ -40,7 +41,7 @@ pub mod oxedium_program {
         instructions::admin::init_oxe_global(ctx)
     }
 
-    // Staker instructions
+    // LP staker instructions
     pub fn staking(ctx: Context<StakingInstructionAccounts>, amount: u64) -> Result<()> {
         instructions::staker::staking(ctx, amount)
     }
@@ -51,11 +52,6 @@ pub mod oxedium_program {
 
     pub fn claim(ctx: Context<ClaimInstructionAccounts>) -> Result<()> {
         instructions::staker::claim(ctx)
-    }
-
-    // Trader instruction
-    pub fn swap(ctx: Context<SwapInstructionAccounts>, amount_in: u64, minimum_out: u64) -> Result<()> {
-        instructions::trader::swap(ctx, amount_in, minimum_out)
     }
 
     // OXE staker instructions
@@ -70,4 +66,10 @@ pub mod oxedium_program {
     pub fn oxe_claim(ctx: Context<OxeClaimInstructionAccounts>) -> Result<()> {
         instructions::oxe_staker::oxe_claim(ctx)
     }
+
+    // Trader instruction
+    pub fn swap(ctx: Context<SwapInstructionAccounts>, amount_in: u64, minimum_out: u64) -> Result<()> {
+        instructions::trader::swap(ctx, amount_in, minimum_out)
+    }
+
 }

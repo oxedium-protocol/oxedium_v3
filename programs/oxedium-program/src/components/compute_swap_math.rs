@@ -77,12 +77,12 @@ pub fn compute_swap_math(
         return Err(OxediumError::FeeExceeds.into());
     }
 
-    let (after_fee, lp_fee, protocol_fee) =
-        calculate_fee_amount(raw_out, liquidity_fee_bps, protocol_fee_bps)?;
-
     if vault_out.current_balance < raw_out {
         return Err(OxediumError::InsufficientLiquidity.into());
     }
+
+    let (after_fee, lp_fee, protocol_fee) =
+        calculate_fee_amount(raw_out, liquidity_fee_bps, protocol_fee_bps)?;
 
     Ok(SwapMathResult {
         swap_fee_bps: liquidity_fee_bps,

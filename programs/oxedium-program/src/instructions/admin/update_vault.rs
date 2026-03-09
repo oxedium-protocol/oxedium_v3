@@ -12,7 +12,7 @@ pub fn update_vault(
 ) -> Result<()> {
     let vault: &mut Account<'_, Vault> = &mut ctx.accounts.vault_pda;
 
-    check_admin(&ctx.accounts.treasury_pda, &ctx.accounts.signer)?;
+    check_admin(&ctx.accounts.admin_pda, &ctx.accounts.signer)?;
 
     require!(base_fee_bps <= 1_000, OxediumError::FeeExceeds);
     require!(protocol_fee_bps <= 500, OxediumError::FeeExceeds);
@@ -48,8 +48,8 @@ pub struct UpdateVaultInstructionAccounts<'info> {
     #[account(mut, seeds = [VAULT_SEED.as_bytes(), token_mint.key().as_ref()], bump)]
     pub vault_pda: Account<'info, Vault>,
 
-    #[account(mut, seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
-    pub treasury_pda: Account<'info, Admin>,
+    #[account(seeds = [OXEDIUM_SEED.as_bytes(), ADMIN_SEED.as_bytes()], bump)]
+    pub admin_pda: Account<'info, Admin>,
 
     pub system_program: Program<'info, System>,
 }
