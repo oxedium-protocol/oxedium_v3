@@ -73,12 +73,12 @@ pub fn compute_swap_math(
         }
     };
 
-    if liquidity_fee_bps + protocol_fee_bps > 10_000 {
-        return Err(OxediumError::FeeExceeds.into());
-    }
-
     if vault_out.current_balance < raw_out {
         return Err(OxediumError::InsufficientLiquidity.into());
+    }
+
+    if liquidity_fee_bps + protocol_fee_bps > 10_000 {
+        return Err(OxediumError::FeeExceeds.into());
     }
 
     let (after_fee, lp_fee, protocol_fee) =

@@ -67,17 +67,13 @@ fn apply_exponent_mul(value: u128, price: u128, exponent: i32) -> Result<u128, O
 /// Computes `value / (price * 10^exponent)`, handling the exponent sign correctly.
 /// Used to convert a USD amount to the output token amount.
 fn apply_exponent_div(value: u128, price: u128, exponent: i32) -> Result<u128, OxediumError> {
-    if exponent < 0 {
-        let exp = exponent.unsigned_abs();
-        value
-            .checked_mul(pow10(exp)?).ok_or(OxediumError::OverflowInMul)?
-            .checked_div(price).ok_or(OxediumError::OverflowInDiv)
-    } else {
-        let exp = exponent as u32;
-        value
-            .checked_div(price).ok_or(OxediumError::OverflowInDiv)?
-            .checked_div(pow10(exp)?).ok_or(OxediumError::OverflowInDiv)
+    if exponent >= 0 {
+        return Err(OxediumError::InvalidPrice);
     }
+    let exp = exponent.unsigned_abs();
+    value
+        .checked_mul(pow10(exp)?).ok_or(OxediumError::OverflowInMul)?
+        .checked_div(price).ok_or(OxediumError::OverflowInDiv)
 }
 
 /// Returns 10^exp as u128, guarding against exponents that would overflow.
