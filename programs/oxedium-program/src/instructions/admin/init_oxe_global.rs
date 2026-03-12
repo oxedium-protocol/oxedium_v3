@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::Mint;
+use anchor_spl::token_interface::Mint as MintInterface;
 
 use crate::{
     components::check_admin,
@@ -24,7 +24,7 @@ pub struct InitOxeGlobalInstructionAccounts<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    pub oxe_mint: Account<'info, Mint>,
+    pub oxe_mint: InterfaceAccount<'info, MintInterface>,
 
     #[account(
         init,

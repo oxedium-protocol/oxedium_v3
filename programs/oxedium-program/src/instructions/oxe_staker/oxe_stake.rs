@@ -2,7 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_lang::AccountSerialize;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{self, Mint, Token, TokenAccount},
+    token_interface::{
+        self, Mint as MintInterface, TokenAccount as TokenAccountInterface, TokenInterface,
+        TransferChecked,
+    },
 };
 
 use crate::{
@@ -78,14 +81,16 @@ pub fn oxe_stake(ctx: Context<OxeStakeInstructionAccounts>, amount: u64) -> Resu
     }
 
     // ── Transfer OXE to escrow and increase balances ─────────────────────────
-    let cpi_accounts = token::Transfer {
+    let cpi_accounts = TransferChecked {
         from: ctx.accounts.signer_ata.to_account_info(),
+        mint: ctx.accounts.oxe_mint.to_account_info(),
         to: ctx.accounts.oxe_global_ata.to_account_info(),
         authority: ctx.accounts.signer.to_account_info(),
     };
-    token::transfer(
+    token_interface::transfer_checked(
         CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts),
         amount,
+        ctx.accounts.oxe_mint.decimals,
     )?;
 
     oxe_staker.owner = ctx.accounts.signer.key();
@@ -128,8 +133,13 @@ pub struct OxeStakeInstructionAccounts<'info> {
     pub oxe_staker_pda: Account<'info, OxeStaker>,
 
     /// OXE token account of the signer
-    #[account(mut, token::authority = signer, token::mint = oxe_global_pda.oxe_mint)]
-    pub signer_ata: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        token::authority = signer,
+        token::mint = oxe_global_pda.oxe_mint,
+        token::token_program = token_program,
+    )]
+    pub signer_ata: InterfaceAccount<'info, TokenAccountInterface>,
 
     /// Program-owned escrow ATA for staked OXE (authority = oxe_global_pda)
     #[account(
@@ -137,13 +147,14 @@ pub struct OxeStakeInstructionAccounts<'info> {
         payer = signer,
         associated_token::mint = oxe_mint,
         associated_token::authority = oxe_global_pda,
+        associated_token::token_program = token_program,
     )]
-    pub oxe_global_ata: Account<'info, TokenAccount>,
+    pub oxe_global_ata: InterfaceAccount<'info, TokenAccountInterface>,
 
     #[account(address = oxe_global_pda.oxe_mint)]
-    pub oxe_mint: Account<'info, Mint>,
+    pub oxe_mint: InterfaceAccount<'info, MintInterface>,
 
     pub associated_token_program: Program<'info, AssociatedToken>,
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }

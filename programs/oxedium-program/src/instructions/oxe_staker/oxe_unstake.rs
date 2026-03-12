@@ -2,7 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_lang::AccountSerialize;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{self, Mint, Token, TokenAccount},
+    token_interface::{
+        self, Mint as MintInterface, TokenAccount as TokenAccountInterface, TokenInterface,
+        TransferChecked,
+    },
 };
 
 use crate::{
@@ -17,7 +20,7 @@ use crate::{
 /// `remaining_accounts` must be provided in pairs: `[vault_pda, oxe_position_pda, ...]`
 /// for every vault the staker has an active position in.  For each pair, accumulated
 /// yield is computed using the **pre-unstake** balance and saved to `pending_claim`
-/// (mirroring the LP unstaking pattern), so it can be collected via `oxe_claim` later.
+/// (mirroring the LP staking pattern), so it can be collected via `oxe_claim` later.
 ///
 /// Vault positions not included in `remaining_accounts` will lose unclaimed yield
 /// once the balance drops to zero.  Clients should pass all active positions.
@@ -101,18 +104,20 @@ pub fn oxe_unstake(ctx: Context<OxeUnstakeInstructionAccounts>, amount: u64) -> 
     ];
     let signer_seeds = &[&oxe_global_seeds[..]];
 
-    let cpi_accounts = token::Transfer {
+    let cpi_accounts = TransferChecked {
         from: ctx.accounts.oxe_global_ata.to_account_info(),
+        mint: ctx.accounts.oxe_mint.to_account_info(),
         to: ctx.accounts.signer_ata.to_account_info(),
         authority: ctx.accounts.oxe_global_pda.to_account_info(),
     };
-    token::transfer(
+    token_interface::transfer_checked(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             cpi_accounts,
             signer_seeds,
         ),
         amount,
+        ctx.accounts.oxe_mint.decimals,
     )?;
 
     emit!(OxeUnstakeEvent {
@@ -149,17 +154,23 @@ pub struct OxeUnstakeInstructionAccounts<'info> {
         payer = signer,
         associated_token::mint = oxe_mint,
         associated_token::authority = signer,
+        associated_token::token_program = token_program,
     )]
-    pub signer_ata: Account<'info, TokenAccount>,
+    pub signer_ata: InterfaceAccount<'info, TokenAccountInterface>,
 
     /// Program-owned escrow ATA (source)
-    #[account(mut, token::authority = oxe_global_pda, token::mint = oxe_mint)]
-    pub oxe_global_ata: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        token::authority = oxe_global_pda,
+        token::mint = oxe_mint,
+        token::token_program = token_program,
+    )]
+    pub oxe_global_ata: InterfaceAccount<'info, TokenAccountInterface>,
 
     #[account(address = oxe_global_pda.oxe_mint)]
-    pub oxe_mint: Account<'info, Mint>,
+    pub oxe_mint: InterfaceAccount<'info, MintInterface>,
 
     pub associated_token_program: Program<'info, AssociatedToken>,
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
