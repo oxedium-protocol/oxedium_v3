@@ -16,7 +16,7 @@ url = "https://api.apr.dev"
 # RPC endpoint is read from ANCHOR_PROVIDER_URL env var (set in .env, not committed).
 # Run: source .env && anchor <command>
 cluster = "mainnet"
-wallet = "~/.config/solana/main.json"
+wallet = "~/.config/solana/dev.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

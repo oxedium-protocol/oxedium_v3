@@ -29,7 +29,7 @@ There are no token pairs, no bonding curves, and no impermanent loss — pricing
 | `swap` | Trader | → vault_in ATA | ← vault_out ATA | `current_balance_in ↑`, `current_balance_out ↓`, `cumulative_yield_per_lp ↑`, `oxe_cumulative_yield_per_staker ↑` |
 | `claim` | LP | — | ← vault ATA | `current_balance ↓`, `pending_claim = 0` |
 | `unstaking` | LP | — | ← vault ATA | `initial_balance ↓`, `current_balance ↓`, exit fee → `cumulative_yield_per_lp ↑` |
-| `oxe_stake` | OXE staker | → OXE escrow ATA | — | `oxe_balance ↑`, `total_oxe_staked ↑` |
+| `oxe_stake` | OXE staker | → OXE escrow ATA | — | positions flushed via `remaining_accounts`, `oxe_balance ↑`, `total_oxe_staked ↑` |
 | `oxe_unstake` | OXE staker | — | ← OXE escrow ATA | positions flushed via `remaining_accounts`, `oxe_balance ↓`, `total_oxe_staked ↓` |
 | `oxe_claim` | OXE staker | — | ← vault ATA | `current_balance ↓`, `pending_claim = 0`, `last_cumulative_yield` advanced |
 
@@ -157,7 +157,7 @@ OXE is the protocol token. Locking OXE entitles the holder to a share of **proto
 ### Setup
 
 1. Admin calls `init_oxe_global(oxe_mint)` once to create the global escrow.
-2. User calls `oxe_stake(amount)` — on first call the `OxeStaker` account is created automatically.
+2. User calls `oxe_stake(amount, remaining=[vault_pda, position_pda, ...])` — on first call the `OxeStaker` account is created automatically. Pass all active `(vault_pda, oxe_position_pda)` pairs so yield is snapshotted at the pre-stake balance before the balance increases.
 3. To start earning from a vault, call `oxe_claim(vault)` once — this creates the `OxeVaultPosition` and anchors the starting point. No retroactive yield is awarded.
 
 ### Position mechanism
@@ -225,7 +225,7 @@ This creates a permanent **bid-ask spread** equal to the oracle confidence inter
 
 ## Fee Model
 
-Every swap incurs a **composite fee** applied to `raw_out`. Two LP-facing components are summed and one flat protocol component is applied separately. Each serves a distinct economic purpose.
+Every swap incurs a **composite fee** applied to `raw_out`. The LP-facing fee is computed in two stages — the imbalance fee sets the floor, then the liquidity impact curve raises it further if needed. A flat protocol component is applied separately. Each serves a distinct economic purpose.
 
 ### 1. Imbalance fee
 
@@ -279,8 +279,6 @@ Examples (base fee = 30 bps):
 | 70% | ~4 500 bps |
 | 100% | 10 000 bps (100%) |
 
-If `current_balance = 0`, the fee jumps directly to 10 000 bps.
-
 ### 3. Protocol fee
 
 A flat `protocol_fee_bps` (set per vault) is applied separately and routed to OXE stakers:
@@ -291,16 +289,17 @@ A flat `protocol_fee_bps` (set per vault) is applied separately and routed to OX
 ### Safety check
 
 ```
-if liquidity_fee + protocol_fee > 10_000 → FeeExceeds error
+if vault_out.current_balance < raw_out       → InsufficientLiquidity error
+if liquidity_fee + protocol_fee > 10_000     → FeeExceeds error
 ```
 
-`liquidity_fee` is the larger of the imbalance fee and liquidity impact fee (they are composed, not summed). The check prevents pathological combinations from producing a negative net output.
+Liquidity is checked first. The fee guard prevents pathological combinations (e.g. extreme utilization + non-zero protocol fee) from producing a negative net output.
 
 ### Fee distribution
 
 | Component | Recipient |
 |-----------|-----------|
-| LP fee (imbalance + liquidity impact) | Distributed to LP stakers of the **output vault** via `cumulative_yield_per_lp` |
+| LP fee (composite: imbalance floor + liquidity impact curve) | Distributed to LP stakers of the **output vault** via `cumulative_yield_per_lp` |
 | Protocol fee | Distributed to OXE stakers via `oxe_cumulative_yield_per_staker`; stays in `current_balance` if no OXE stakers exist |
 | Exit fee (on unstaking) | Distributed to **remaining LP stakers** of the same vault via `cumulative_yield_per_lp` |
 
@@ -354,7 +353,7 @@ This snapshot is taken on every position change so yield is never lost.
 
 | Instruction | Arguments | Description |
 |-------------|-----------|-------------|
-| `oxe_stake` | `amount: u64` | Lock OXE tokens into the global escrow |
+| `oxe_stake` | `amount: u64`, `remaining: [vault_pda, position_pda, ...]` | Flush yield for every active position at pre-stake balance, then lock OXE tokens into the global escrow |
 | `oxe_unstake` | `amount: u64`, `remaining: [vault_pda, position_pda, ...]` | Flush yield for every active position, then unlock OXE tokens instantly |
 | `oxe_claim` | — | Collect OXE staking rewards from a single vault (paid in vault's token); first call initializes the position |
 
