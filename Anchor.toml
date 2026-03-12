@@ -7,7 +7,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-oxedium_program = "oxe3zgfkaGph4X5bv4RZRFUcQXZcXxK9fxDizCtPZv7"
+oxedium_program = "oV3SkLhiXSG946FaqDf1yNocFMhE1ZvomGsoWF8Mzap"
 
 [registry]
 url = "https://api.apr.dev"
